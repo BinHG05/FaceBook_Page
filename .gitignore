@@ -1,0 +1,8 @@
+.env
+**/.env
+**/bin/
+**/obj/
+.vs/
+*.user
+*.suo
+~$*.docx
