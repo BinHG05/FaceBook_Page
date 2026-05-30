@@ -1,0 +1,26 @@
+{
+  "object": "page",
+  "entry": [
+    {
+      "id": "123456789",
+      "time": 1777087800,
+      "changes": [
+        {
+          "field": "feed",
+          "value": {
+            "item": "comment",
+            "verb": "add",
+            "comment_id": "987654321",
+            "post_id": "123456789_111111",
+            "message": "Bai viet rat hay",
+            "created_time": "2026-04-25T12:30:00+07:00",
+            "from": {
+              "id": "10001",
+              "name": "Nguyen Van A"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
