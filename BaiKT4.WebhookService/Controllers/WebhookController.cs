@@ -1,4 +1,5 @@
 using System.Text;
+using BaiKT4.Contracts.Models;
 using BaiKT4.WebhookService.Options;
 using BaiKT4.WebhookService.Services;
 using Microsoft.AspNetCore.Mvc;
@@ -52,16 +53,25 @@ public sealed class WebhookController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Receive(CancellationToken cancellationToken)
     {
+        // ==========================================
+        // LUỒNG 1: COMMENT -> RAW_EVENTS -> REPLY_COMMAND -> REPLY THẬT
+        // BƯỚC 1: Nhận payload Webhook thô từ Facebook gửi tới (ví dụ: người dùng comment trên bài viết).
+        // ==========================================
         using var reader = new StreamReader(Request.Body, Encoding.UTF8);
         var rawPayload = await reader.ReadToEndAsync(cancellationToken);
         var signatureHeader = Request.Headers["X-Hub-Signature-256"].FirstOrDefault();
 
+        // Kiểm tra chữ ký bảo mật X-Hub-Signature-256 của Facebook để đảm bảo request thực sự từ Facebook.
         if (!_signatureValidator.IsSignatureValid(rawPayload, signatureHeader))
         {
             return Unauthorized(new { error = "Signature validation failed." });
         }
 
-        var normalizedEvents = _normalizer.Normalize(rawPayload);
+        // ==========================================
+        // BƯỚC 2: Chuẩn hóa dữ liệu thô (raw payload) thành đối tượng NormalizedWebhookEvent.
+        // Hàm Normalize() sẽ bóc tách các trường như PageId, Actor (người comment), MessageText (nội dung),...
+        // ==========================================
+        IReadOnlyList<NormalizedWebhookEvent> normalizedEvents = _normalizer.Normalize(rawPayload);
         if (normalizedEvents.Count == 0)
         {
             _logger.LogInformation("Webhook received but no supported event could be normalized.");
@@ -73,6 +83,10 @@ public sealed class WebhookController : ControllerBase
             });
         }
 
+        // ==========================================
+        // BƯỚC 3: Publish sự kiện đã chuẩn hóa vào topic 'raw_events' trong Kafka thông qua REST Proxy.
+        // Tiếp theo, Core Service sẽ tiêu thụ (consume) topic này để xử lý.
+        // ==========================================
         await _publisher.PublishAsync(normalizedEvents, cancellationToken);
 
         _logger.LogInformation("Published {Count} event(s) to Kafka topic raw_events.", normalizedEvents.Count);
