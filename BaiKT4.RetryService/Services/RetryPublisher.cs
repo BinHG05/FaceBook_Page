@@ -1,0 +1,63 @@
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using BaiKT4.Contracts.Models;
+using BaiKT4.RetryService.Options;
+using Microsoft.Extensions.Options;
+
+namespace BaiKT4.RetryService.Services;
+
+public sealed class RetryPublisher : IRetryPublisher
+{
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly KafkaOptions _options;
+
+    public RetryPublisher(IHttpClientFactory httpClientFactory, IOptions<KafkaOptions> options)
+    {
+        _httpClientFactory = httpClientFactory;
+        _options = options.Value;
+    }
+
+    public Task PublishRetryAsync(ReplyCommand command, CancellationToken cancellationToken)
+    {
+        return PublishAsync(_options.SendRetryTopic, command.CommandId, command, cancellationToken);
+    }
+
+    public Task PublishDeadLetterAsync(DeadLetterEvent deadLetterEvent, CancellationToken cancellationToken)
+    {
+        return PublishAsync(_options.DeadLetterTopic, deadLetterEvent.Command.CommandId, deadLetterEvent, cancellationToken);
+    }
+
+    private async Task PublishAsync(string topicName, string key, object payload, CancellationToken cancellationToken)
+    {
+        var record = new
+        {
+            key = ToBase64(key),
+            value = ToBase64(JsonSerializer.Serialize(payload, JsonOptions))
+        };
+
+        var requestBody = JsonSerializer.Serialize(new { records = new[] { record } }, JsonOptions);
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            $"{_options.RestProxyBaseUrl.TrimEnd('/')}/topics/{Uri.EscapeDataString(topicName)}");
+
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.kafka.v2+json"));
+        request.Content = new StringContent(requestBody, Encoding.UTF8, "application/vnd.kafka.binary.v2+json");
+
+        var client = _httpClientFactory.CreateClient(nameof(RetryPublisher));
+        using var response = await client.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(
+                $"Kafka REST Proxy publish failed with status {(int)response.StatusCode}: {responseBody}");
+        }
+    }
+
+    private static string ToBase64(string value)
+    {
+        return Convert.ToBase64String(Encoding.UTF8.GetBytes(value));
+    }
+}
