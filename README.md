@@ -1,105 +1,116 @@
-# Bai 2 - Xu ly thoi gian thuc voi Webhook va Kafka
+# BaiKT4 - Facebook Graph API + Webhook + Kafka Microservices
 
-## Trang thai theo de bai
+Repo nay da duoc tach theo kien truc microservice dung voi de bai:
 
-- [x] Cai dat `webhook-service` chay cong `3001`
-- [x] Tao endpoint `GET /webhook` de Facebook verify webhook
-- [x] Tao endpoint `POST /webhook` de nhan event do Facebook gui den
-- [x] Xac thuc request bang `X-Hub-Signature-256` khi co `AppSecret`
-- [x] Parse payload Facebook
-- [x] Normalize event ve schema chuan chung
-- [x] Dua event vao Kafka topic `raw_events`
-- [x] Cung cap `docker compose` de chay Kafka
-- [x] Cung cap UI de xem message Kafka
-- [~] Dang ky nhan su kien binh luan tu Facebook
+- `backend-api` port `3000`
+- `webhook-service` port `3001`
+- `core-service` port `3002`
+- `retry-service` port `3003`
+- `prometheus` port `9090`
+- `alertmanager` port `9093`
 
-Muc `[~]` la phan da hoan thanh ve mat he thong backend: service da san sang cho callback URL, verify token va xu ly payload. Tuy nhien thao tac dang ky subscription phai thuc hien tren Meta for Developers bang tai khoan Facebook cua ban, nen minh da bo sung huong dan chi tiet trong file `FACEBOOK_SUBSCRIPTION.md`.
+Tat ca giao tiep noi bo di qua Kafka.
 
-## Tom tat implementation
+## Solution structure
 
-- Tao `webhook-service` chay cong `3001`
-- Cung cap endpoint `GET /webhook` de Facebook verify webhook
-- Cung cap endpoint `POST /webhook` de nhan event tu Facebook
-- Xac thuc chu ky `X-Hub-Signature-256` neu co `AppSecret`
-- Normalize payload Facebook thanh schema chung
-- Publish du lieu vao Kafka topic `raw_events`
-- Publish du lieu thong qua `Kafka REST Proxy` de tranh phu thuoc them package ben ngoai khi build local
-- Chay Kafka bang `docker compose`
-- Co UI xem message qua `Kafka UI`
+- `BaiKT4.Microservices.sln`: solution tong
+- `BaiKT4.Contracts`: schema/event/command dung chung giua cac service
+- `BaiKT4.WebhookService`: nhan webhook Facebook, verify HMAC, normalize payload, publish `raw_events`
+- `BaiKT4.CoreService`: consume `raw_events`, phan loai AI, sentiment, automation rule, publish `reply_commands`
+- `BaiKT4.BackendApi`: expose REST API dashboard, consume `reply_commands` va `send_retry`, kiem tra idempotency, goi Facebook Graph API, publish `send_failed`
+- `BaiKT4.RetryService`: consume `send_failed`, retry exponential backoff, publish `send_retry` hoac `dead_letter`
+- `monitoring/`: Prometheus, Alertmanager va local webhook receiver cho DLQ alert
 
-## Tai lieu ban can dung
+## Kafka topics
 
-- `README.md`: tong quan bai lam
-- `TESTING.md`: toan bo lenh test de ban tu chay
-- `FACEBOOK_SUBSCRIPTION.md`: cac buoc dang ky webhook comment tren Meta Developer
-- `samples/comment-event.json`: payload comment mau
-- `samples/message-event.json`: payload message mau
+- `raw_events`: webhook-service -> core-service
+- `reply_commands`: core-service -> backend-api
+- `send_retry`: retry-service -> backend-api
+- `send_failed`: backend-api -> retry-service
+- `dead_letter`: retry-service -> DLQ cho van hanh theo doi
 
-## Cau truc
+## Luong xu ly
 
-- `BaiKT4.WebhookService`: ASP.NET Core Web API nhan webhook va day du lieu vao Kafka
-- `docker-compose.yml`: chay Kafka, Schema Registry, Kafka REST Proxy, Kafka UI va webhook-service
+1. Facebook gui `POST /webhook` vao `webhook-service`
+2. `webhook-service` verify chu ky, parse payload, normalize va publish `raw_events`
+3. `core-service` consume `raw_events`, phat hien spam, goi AI de lay `intent` + `sentiment`, ap dung automation rule
+4. `core-service` publish `reply_commands`
+5. `backend-api` consume `reply_commands`, kiem tra idempotency key trong database, sau do moi goi Facebook Graph API
+6. Neu gui thanh cong thi luu key da xu ly
+7. Neu gui that bai thi publish `send_failed`
+8. `retry-service` consume `send_failed`, doi theo exponential backoff roi publish `send_retry`
+9. Neu vuot nguong retry, message duoc dua vao `dead_letter`
 
-## Schema normalize
+## Automation rules va tracking
 
-Moi event sau khi chuan hoa se co dang tong quat:
+- Spam nhe -> `hide_comment`
+- Spam lap lai trong 24h -> `blacklist` noi bo
+- Link doc hai / scam -> `hide_comment` + `pending_review` + dua vao `ManualReviewQueue`
+- User da blacklist -> khong auto reply nua, dua sang workflow review thu cong
+- Trang thai event duoc theo doi trong `ProcessedEvents`
+- Trang thai command duoc theo doi trong `ProcessedCommands`
+- Hang cho review thu cong duoc luu trong `ManualReviewQueue`
+- Danh sach chan noi bo duoc luu trong `BlacklistedUsers`
 
-```json
-{
-  "eventId": "guid",
-  "source": "facebook",
-  "eventType": "comment.created",
-  "topic": "raw_events",
-  "sourceEventId": "comment_id_or_mid",
-  "pageId": "page_id",
-  "pageName": "page_name",
-  "objectType": "page",
-  "receivedAt": "2026-04-25T06:00:00+00:00",
-  "occurredAt": "2026-04-25T05:59:00+00:00",
-  "actor": {
-    "id": "user_id",
-    "name": "user_name"
-  },
-  "target": {
-    "id": "comment_or_recipient_id",
-    "parentId": "post_id"
-  },
-  "messageText": "Noi dung binh luan hoac tin nhan",
-  "metadata": {
-    "field": "feed",
-    "item": "comment",
-    "verb": "add"
-  },
-  "rawPayload": {}
-}
-```
+## Monitoring
+
+- `kafka-exporter` expose metric Kafka cho Prometheus
+- Prometheus canh bao khi `dead_letter` co message moi trong 1 phut gan nhat
+- Alertmanager gui webhook toi `alert-webhook`
+- Co the thay receiver webhook bang Slack/Email that khi trien khai
+
+## Yeu cau de bai da duoc map vao service nao
+
+- Bai 1:
+  - `backend-api` chua cac API proxy Facebook nhu `GET /posts`, `POST /post`, `GET /comments`
+  - chỉ `backend-api` duoc phep goi Facebook Graph API
+- Bai 2:
+  - `webhook-service` nhan webhook va day `raw_events`
+  - `core-service` xu ly thoi gian thuc
+  - `retry-service` xu ly retry va DLQ
+- Bai 3:
+  - `core-service` goi AI phan tich intent/sentiment
+  - `backend-api` co idempotency
+  - `retry-service` co exponential backoff
+  - `backend-api` va `core-service` deu co circuit-breaker muc co ban
 
 ## Cach chay nhanh
 
-1. Chay toan bo he thong:
+1. Tao file `.env` o root repo tu `.env.example` va dien `GEMINI_API_KEY`
+
+```powershell
+Copy-Item .env.example .env
+```
+
+2. Chay he thong:
 
 ```powershell
 docker compose up --build
 ```
 
-2. Truy cap cac dia chi:
+Sau khi chay:
 
-- Webhook service: `http://localhost:3001`
-- Health check: `http://localhost:3001/health`
+- Backend API: `http://localhost:3000`
+- Webhook Service: `http://localhost:3001`
+- Core Service: `http://localhost:3002`
+- Retry Service: `http://localhost:3003`
 - Kafka REST Proxy: `http://localhost:8082`
 - Kafka UI: `http://localhost:8085`
+- Prometheus: `http://localhost:9090`
+- Alertmanager: `http://localhost:9093`
+- Alert webhook logs: `docker compose logs alert-webhook`
 
-3. Facebook verify webhook:
+## Luu y
 
-```text
-GET /webhook?hub.mode=subscribe&hub.verify_token=baitk4-dev-token&hub.challenge=123456
-```
+- `backend-api` hien co `SimulateMode=true` de de demo khi chua co Page Access Token that
+- Muon goi Facebook Graph API that, can dien `FacebookGraph:PageId` va `FacebookGraph:PageAccessToken`
+- `webhook-service` co the test local voi `AcceptUnsignedPayloads=true`
+- Trong moi truong production, can dat `AcceptUnsignedPayloads=false` va cau hinh `AppSecret`
+- Folder `core_service` cu khong con duoc su dung. Cau hinh hien tai nam trong `appsettings*.json` hoac bien moi truong cua tung microservice.
 
-4. Chay cac lenh test trong `TESTING.md`.
+## Tai lieu test
 
-## Ghi chu
-
-- Neu `FacebookWebhook:AppSecret` rong, service cho phep payload unsigned de test local.
-- Khi dua len moi truong that, can set `FacebookWebhook:AppSecret` va `AcceptUnsignedPayloads=false`.
-- Trong moi truong hien tai, host khong restore duoc NuGet tu `api.nuget.org`, nen publisher duoc doi sang goi tin qua `Kafka REST Proxy` trong Docker Compose. Kafka van la Kafka that va message van xem duoc trong `Kafka UI`.
-- Anh de bai hien tai bi mo va bi cat phan duoi, nen implementation nay bam chac cac muc doc duoc tren anh va bo sung them README, Dockerfile, Kafka UI de de demo.
+- `TESTING.md`: cac lenh test nhanh
+- `FACEBOOK_SUBSCRIPTION.md`: huong dan dang ky webhook tren Meta Developer
+- `samples/comment-event.json`: payload comment mau
+- `samples/message-event.json`: payload message mau
