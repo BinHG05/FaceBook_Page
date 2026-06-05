@@ -1,0 +1,24 @@
+{
+  "object": "page",
+  "entry": [
+    {
+      "id": "123456789",
+      "time": 1777087800,
+      "messaging": [
+        {
+          "sender": {
+            "id": "20001"
+          },
+          "recipient": {
+            "id": "123456789"
+          },
+          "timestamp": 1777087800000,
+          "message": {
+            "mid": "m_test_001",
+            "text": "Xin chao page"
+          }
+        }
+      ]
+    }
+  ]
+}

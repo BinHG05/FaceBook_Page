@@ -1,0 +1,12 @@
+groups:
+  - name: dead-letter-monitoring
+    rules:
+      - alert: DeadLetterTopicReceivedMessages
+        expr: sum(increase(kafka_topic_partition_current_offset{topic="dead_letter"}[1m])) > 0
+        for: 15s
+        labels:
+          severity: critical
+          service: retry-service
+        annotations:
+          summary: "dead_letter topic has new messages"
+          description: "Kafka dead_letter topic received at least one new message in the last minute."
