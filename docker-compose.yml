@@ -1,0 +1,87 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.9.6
+    container_name: baitk4-kafka
+    hostname: kafka
+    ports:
+      - "9094:9094"
+    environment:
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093,PLAINTEXT_HOST://0.0.0.0:9094"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "cub kafka-ready -b kafka:9092 1 40"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.6
+    container_name: baitk4-schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
+      SCHEMA_REGISTRY_LISTENERS: "http://0.0.0.0:8081"
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
+
+  kafka-rest-proxy:
+    image: confluentinc/cp-kafka-rest:7.9.6
+    container_name: baitk4-kafka-rest-proxy
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    environment:
+      KAFKA_REST_HOST_NAME: "kafka-rest-proxy"
+      KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
+      KAFKA_REST_BOOTSTRAP_SERVERS: "PLAINTEXT://kafka:9092"
+      KAFKA_REST_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: baitk4-kafka-ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "baitk4-local"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+
+  webhook-service:
+    build:
+      context: ./BaiKT4.WebhookService
+    container_name: baitk4-webhook-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-rest-proxy:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      Kafka__RestProxyBaseUrl: "http://kafka-rest-proxy:8082"
+      Kafka__TopicName: "raw_events"
+      FacebookWebhook__VerifyToken: "baitk4-dev-token"
+      FacebookWebhook__AppSecret: ""
+      FacebookWebhook__AcceptUnsignedPayloads: "true"
+    ports:
+      - "3001:8080"
