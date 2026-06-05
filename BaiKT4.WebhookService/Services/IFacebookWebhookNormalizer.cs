@@ -1,4 +1,4 @@
-using BaiKT4.WebhookService.Models;
+using BaiKT4.Contracts.Models;
 
 namespace BaiKT4.WebhookService.Services;
 

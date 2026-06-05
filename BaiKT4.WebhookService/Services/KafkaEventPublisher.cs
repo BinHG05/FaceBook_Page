@@ -1,7 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using BaiKT4.WebhookService.Models;
+using BaiKT4.Contracts.Models;
 using BaiKT4.WebhookService.Options;
 using Microsoft.Extensions.Options;
 

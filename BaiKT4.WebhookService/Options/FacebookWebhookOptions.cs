@@ -8,5 +8,7 @@ public sealed class FacebookWebhookOptions
 
     public string AppSecret { get; set; } = string.Empty;
 
+    public string PageId { get; set; } = string.Empty;
+
     public bool AcceptUnsignedPayloads { get; set; } = true;
 }
