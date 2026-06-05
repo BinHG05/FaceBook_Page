@@ -1,4 +1,13 @@
 services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: baitk4-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "YourStrong(!)Passw0rd"
+    ports:
+      - "1433:1433"
+
   kafka:
     image: confluentinc/cp-kafka:7.9.6
     container_name: baitk4-kafka
@@ -67,9 +76,58 @@ services:
       KAFKA_CLUSTERS_0_NAME: "baitk4-local"
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
 
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: baitk4-kafka-exporter
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - --kafka.server=kafka:9092
+    ports:
+      - "9308:9308"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: baitk4-prometheus
+    depends_on:
+      kafka-exporter:
+        condition: service_started
+      alertmanager:
+        condition: service_started
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports:
+      - "9090:9090"
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: baitk4-alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "9093:9093"
+
+  alert-webhook:
+    image: python:3.12-alpine
+    container_name: baitk4-alert-webhook
+    working_dir: /app
+    command: ["python", "/app/server.py"]
+    volumes:
+      - ./monitoring/alert-webhook:/app:ro
+    ports:
+      - "18080:8080"
+
   webhook-service:
     build:
-      context: ./BaiKT4.WebhookService
+      context: .
+      dockerfile: BaiKT4.WebhookService/Dockerfile
     container_name: baitk4-webhook-service
     depends_on:
       kafka:
@@ -82,6 +140,82 @@ services:
       Kafka__TopicName: "raw_events"
       FacebookWebhook__VerifyToken: "baitk4-dev-token"
       FacebookWebhook__AppSecret: ""
+      FacebookWebhook__PageId: "1029208276949641"
       FacebookWebhook__AcceptUnsignedPayloads: "true"
     ports:
       - "3001:8080"
+
+  core-service:
+    build:
+      context: .
+      dockerfile: BaiKT4.CoreService/Dockerfile
+    container_name: baitk4-core-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-rest-proxy:
+        condition: service_started
+      sqlserver:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      Kafka__BootstrapServers: "kafka:9092"
+      Kafka__GroupId: "core-service-docker-group"
+      Kafka__RestProxyBaseUrl: "http://kafka-rest-proxy:8082"
+      Kafka__RawEventsTopic: "raw_events"
+      Kafka__ReplyCommandsTopic: "reply_commands"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BaiKT4Db;User Id=sa;Password=YourStrong(!)Passw0rd;TrustServerCertificate=True;"
+      Ai__Model: "gemini-3.1-flash-lite"
+      GEMINI_API_KEY: "${GEMINI_API_KEY}"
+    ports:
+      - "3002:8080"
+
+  backend-api:
+    build:
+      context: .
+      dockerfile: BaiKT4.BackendApi/Dockerfile
+    container_name: baitk4-backend-api
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-rest-proxy:
+        condition: service_started
+      sqlserver:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      Kafka__BootstrapServers: "kafka:9092"
+      Kafka__GroupId: "backend-api-docker-group"
+      Kafka__RestProxyBaseUrl: "http://kafka-rest-proxy:8082"
+      Kafka__ReplyCommandsTopic: "reply_commands"
+      Kafka__SendRetryTopic: "send_retry"
+      Kafka__SendFailedTopic: "send_failed"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver,1433;Database=BaiKT4Db;User Id=sa;Password=YourStrong(!)Passw0rd;TrustServerCertificate=True;"
+      FacebookGraph__BaseUrl: "https://graph.facebook.com/v25.0"
+      FacebookGraph__PageId: "1029208276949641"
+      FacebookGraph__PageAccessToken: "<PAGE_ACCESS_TOKEN_THAT>"
+      FacebookGraph__SimulateMode: "false"
+    ports:
+      - "3000:8080"
+
+  retry-service:
+    build:
+      context: .
+      dockerfile: BaiKT4.RetryService/Dockerfile
+    container_name: baitk4-retry-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-rest-proxy:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Development"
+      Kafka__BootstrapServers: "kafka:9092"
+      Kafka__GroupId: "retry-service-docker-group"
+      Kafka__RestProxyBaseUrl: "http://kafka-rest-proxy:8082"
+      Kafka__SendFailedTopic: "send_failed"
+      Kafka__SendRetryTopic: "send_retry"
+      Kafka__DeadLetterTopic: "dead_letter"
+      Kafka__MaxRetryCount: "3"
+    ports:
+      - "3003:8080"
