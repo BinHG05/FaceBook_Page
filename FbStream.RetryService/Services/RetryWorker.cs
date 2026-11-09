@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using FbStream.Contracts.Models;
 using FbStream.RetryService.Options;
 using Confluent.Kafka;
@@ -105,23 +105,43 @@ public sealed class RetryWorker : BackgroundService
         // ==========================================
         // LUỒNG 2: BƯỚC 5: Xử lý Thử lại (Retry) với độ trễ lũy thừa (Exponential Backoff Delay)
         // delay = 2 ^ RetryCount giây (lần 1 delay 1s, lần 2 delay 2s, lần 3 delay 4s...)
+        // NÂNG CẤP: Chuyển sang Non-Blocking Asynchronous Dispatcher.
+        // Consumer loop không bị block trong khi chờ delay, đảm bảo thông lượng đọc liên tục!
         // ==========================================
         var delay = TimeSpan.FromSeconds(Math.Pow(2, failedEvent.RetryCount));
-        _logger.LogInformation("Scheduling retry {RetryCount} for command {CommandId} after {DelaySeconds}s.", nextRetryCount, failedEvent.Command.CommandId, delay.TotalSeconds);
         
-        // Trì hoãn xử lý trước khi gửi tin nhắn thử lại
-        await Task.Delay(delay, cancellationToken);
-
-        // Tạo command mới với RetryCount được tăng lên
         var retryCommand = failedEvent.Command with
         {
             RetryCount = nextRetryCount
         };
 
-        // ==========================================
-        // LUỒNG 2: BƯỚC 6: Gửi lại Command vào Kafka topic 'send_retry'.
-        // Backend API Service đang consume 'send_retry' nên sẽ nhận được và tiến hành thực thi lại lệnh này.
-        // ==========================================
-        await _retryPublisher.PublishRetryAsync(retryCommand, cancellationToken);
+        // Kích hoạt dispatch bất đồng bộ (Non-blocking)
+        _ = DispatchDelayedRetryAsync(retryCommand, delay, cancellationToken);
+    }
+
+    private async Task DispatchDelayedRetryAsync(ReplyCommand retryCommand, TimeSpan delay, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Scheduled non-blocking retry {RetryCount} for command {CommandId} after {DelaySeconds}s delay.",
+                retryCommand.RetryCount, retryCommand.CommandId, delay.TotalSeconds);
+
+            await Task.Delay(delay, cancellationToken);
+
+            // ==========================================
+            // LUỒNG 2: BƯỚC 6: Hết thời gian chờ, gửi lại Command vào Kafka topic 'send_retry'.
+            // ==========================================
+            await _retryPublisher.PublishRetryAsync(retryCommand, cancellationToken);
+            _logger.LogInformation("Dispatched retry {RetryCount} for command {CommandId} to send_retry successfully.",
+                retryCommand.RetryCount, retryCommand.CommandId);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Cancelled pending retry for command {CommandId} due to service shutdown.", retryCommand.CommandId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to dispatch scheduled retry for command {CommandId}.", retryCommand.CommandId);
+        }
     }
 }
