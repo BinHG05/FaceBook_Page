@@ -1,4 +1,4 @@
-# Huong dan dang ky Facebook Webhook theo dung giao dien trong anh
+﻿# Huong dan dang ky Facebook Webhook theo dung giao dien trong anh
 
 File nay viet lai theo giao dien Meta Developer tieng Viet ma ban dang mo, khong dung ten menu cu.
 
@@ -13,7 +13,7 @@ Backend cua bai da san sang voi:
 
 - Callback path: `/webhook`
 - Port local: `3001`
-- Verify token mac dinh: `baitk4-dev-token`
+- Verify token mac dinh: `fbstream-dev-token`
 
 Neu ban chay local, Facebook se khong goi duoc `localhost`, nen ban can 1 URL cong khai bang:
 
@@ -132,14 +132,14 @@ vi Facebook khong goi vao localhost duoc.
 Nhap:
 
 ```text
-baitk4-dev-token
+fbstream-dev-token
 ```
 
 Hoac neu ban doi token trong file config thi nhap dung token moi.
 
 File lien quan:
 
-- [appsettings.Development.json](/d:/Năm 3 - Kỳ 2/API/BaiKT4/BaiKT4.WebhookService/appsettings.Development.json)
+- [appsettings.Development.json](/d:/Năm 3 - Kỳ 2/API/FbStream/FbStream.WebhookService/appsettings.Development.json)
 
 ## Buoc 6. Bam luu va de Facebook xac minh
 
@@ -210,7 +210,7 @@ Tu anh ban gui, ban hay tim theo thu tu nay:
 ### Verify token
 
 ```text
-baitk4-dev-token
+fbstream-dev-token
 ```
 
 ### Callback URL

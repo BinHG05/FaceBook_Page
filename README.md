@@ -1,123 +1,117 @@
-# Facebook Webhook Processing & Moderation System (Kafka Microservices)
+﻿# Event-Driven Streaming Data Platform | Real-Time Analytics
 
-Dự án này là hệ thống Microservices xử lý Webhook từ Facebook Page, phân tích nội dung tự động bằng Gemini AI, lọc spam, tự động phản hồi bình luận và quản lý luồng lỗi tin nhắn gửi đi qua Kafka với cơ chế **Exponential Backoff Retry** và **Dead Letter Queue (DLQ)**.
+Hệ thống Streaming Data Platform hướng sự kiện (Event-Driven Architecture) kiến trúc dòng kép (**Dual-Stream**): Vừa thực thi kiểm duyệt nội dung, tự động phản hồi Facebook qua AI (Operational Stream), vừa phân tích, tổng hợp dữ liệu theo cửa sổ thời gian (Windowing Stream Analytics) và trực quan hóa thời gian thực trên Streamlit Dashboard.
 
 ---
 
-## 🏗️ Kiến trúc Hệ thống
-
-Hệ thống được thiết kế theo mô hình Microservice hướng sự kiện (Event-Driven Architecture) giao tiếp hoàn toàn qua Apache Kafka:
+## 🏗️ Kiến trúc Hệ thống Dòng Kép (Dual-Stream Architecture)
 
 ```mermaid
-graph TD
-    FB[Facebook Graph API / Webhook] -->|1. Webhook POST| WH[Webhook Service :3001]
-    WH -->|2. raw_events| Kafka[Kafka Broker]
-    Kafka -->|3. Consume raw_events| Core[Core Service :3002]
-    Core -->|4. Gemini AI Query| AI[Gemini API]
-    Core -->|5. Write Logs / State| SQL[(SQL Server)]
-    Core -->|6. reply_commands| Kafka
-    Kafka -->|7. Consume reply_commands & send_retry| Backend[Backend API :3000]
-    Backend -->|8. Dispatch Auto-Reply| FB
-    Backend -->|9. If Fail -> send_failed| Kafka
-    Kafka -->|10. Consume send_failed| Retry[Retry Service :3003]
-    Retry -->|11. Delay & Retry -> send_retry| Kafka
-    Retry -->|12. Limit Exceeded -> dead_letter| Kafka
+flowchart TD
+    FB["Facebook Webhooks / Traffic Simulator"] -->|1. Webhook POST| WH["Webhook Service :3001"]
     
-    %% Monitoring pipeline
-    Kafka -->|Export Metrics| Exporter[Kafka Exporter]
-    Exporter -->|Scraped by| Prom[Prometheus :9090]
-    Prom -->|Trigger Alerts| AM[Alertmanager :9093]
-    AM -->|Post alerts| Webhook[Alert Webhook Server :18080]
+    subgraph Governance["Data Governance & Contracts"]
+        SR["Confluent Schema Registry :8081<br/>JSON Schema Contracts"]
+        WH <-->|Validate & Register Schema| SR
+    end
+
+    WH -->|2. raw_events| Kafka[Kafka Broker]
+
+    subgraph OperationalStream["1. Operational Stream (C# .NET 9 Microservices)"]
+        Kafka -->|3. Consume raw_events| Core["Core Service :3002<br/>Gemini AI + Rule Engine"]
+        Core -->|4. Audit log| SQL[("SQL Server")]
+        Core -->|5. reply_commands| Kafka
+        Kafka -->|6. Consume reply_commands & send_retry| Backend["Backend API :3000<br/>Idempotency + Circuit Breaker"]
+        Backend -->|7. Dispatch Reply| FB_API["Facebook Graph API"]
+        Backend -->|8. If Fail -> send_failed| Kafka
+        Kafka -->|9. Consume send_failed| Retry["Retry Service :3003<br/>Exponential Backoff"]
+        Retry -->|10. Retry <= 3 -> send_retry| Kafka
+        Retry -->|11. Exceeded -> dead_letter| Kafka
+    end
+
+    subgraph AnalyticalStream["2. Analytical Stream (Python + Streamlit)"]
+        Kafka -.->|Consume raw_events, reply_commands, dead_letter| Analytics["Analytics Worker<br/>(1m Tumbling & 5m Sliding Window)"]
+        Analytics -->|Emit Aggregations| MDB[("SQLite Time-Series Metrics")]
+        MDB -->|Live Refresh (2s)| Dash["Streamlit Live Dashboard :8501<br/>- Sentiment Trends<br/>- Comment Velocity & Spike Alert<br/>- Failure & DLQ Rates"]
+    end
+
+    subgraph SRE["3. Real-Time Observability & Monitoring"]
+        Kafka -->|Metrics Scrape| Exporter["Kafka Exporter :9308"]
+        Exporter -->|Scraped by| Prom["Prometheus :9090"]
+        Prom -->|Trigger Alerts| AM["Alertmanager :9093"]
+        AM -->|Webhook alert| Alert["Alert Webhook :18080"]
+    end
 ```
 
-### 🗂️ Cấu trúc Solution
-*   **[BaiKT4.Contracts](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/BaiKT4.Contracts)**: Thư viện định nghĩa các Model, Event và Command dùng chung giữa các Service.
-*   **[BaiKT4.WebhookService](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/BaiKT4.WebhookService)**: Nhận webhook từ Facebook, kiểm tra chữ ký HMAC, chuẩn hóa payload thành cấu trúc sự kiện chung và gửi vào Kafka.
-*   **[BaiKT4.CoreService](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/BaiKT4.CoreService)**: Tiêu thụ sự kiện thô, kiểm duyệt spam/blacklist, sử dụng Gemini AI phân tích Ý định (Intent) và Thái độ (Sentiment), quyết định hành động phản hồi.
-*   **[BaiKT4.BackendApi](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/BaiKT4.BackendApi)**: Cung cấp API Dashboard quản lý và tiêu thụ lệnh để gọi Facebook Graph API phản hồi người dùng thực tế (có hỗ trợ cơ chế phòng vệ Idempotency và Circuit Breaker).
-*   **[BaiKT4.RetryService](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/BaiKT4.RetryService)**: Tiêu thụ lệnh lỗi từ Kafka, quản lý thời gian chờ tăng dần (Backoff) và định tuyến tới hàng đợi lỗi (DLQ).
-*   **[monitoring/](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/monitoring)**: Hệ thống giám sát gồm Prometheus, Alertmanager và một HTTP Webhook Server Python dùng để ghi nhận cảnh báo khi có tin nhắn rơi vào DLQ.
+---
+
+## 🗂️ Cấu trúc Dịch vụ & Thư mục
+
+*   **[FbStream.Contracts](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/FbStream.Contracts)**: Định nghĩa Model C# dùng chung giữa các microservices.
+*   **[contracts/schemas/](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/contracts/schemas)**: JSON Schemas (Data Contracts) đăng ký lên Schema Registry.
+*   **[FbStream.WebhookService](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/FbStream.WebhookService)**: Nhận webhook, verify chữ ký HMAC-SHA256, chuẩn hóa payload và publish vào `raw_events`.
+*   **[FbStream.CoreService](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/FbStream.CoreService)**: Kiểm tra spam/blacklist, gọi Gemini AI phân tích intent/sentiment, thực thi rule engine và publish vào `reply_commands`.
+*   **[FbStream.BackendApi](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/FbStream.BackendApi)**: API Proxy, kiểm tra Idempotency Key, Circuit Breaker, gọi Facebook Graph API và bắt lỗi sang `send_failed`.
+*   **[FbStream.RetryService](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/FbStream.RetryService)**: Exponential Backoff Retry ($1s \times 2^{\text{retry\_count}}$) và phân loại lỗi đẩy vào `dead_letter` (DLQ).
+*   **[analytics/](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/analytics)**: Dịch vụ Python Stream Analytics + Streamlit Dashboard thời gian thực (Cổng 8501).
+*   **[monitoring/](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/monitoring)**: Prometheus, Alertmanager, Kafka Exporter giám sát Consumer Lag, DLQ và Traffic Spike.
+*   **[scripts/](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/scripts)**: Công cụ đăng ký Schema Contract và bộ test tải đột biến (Burst Load 500+ requests).
 
 ---
 
-## 📨 Kafka Topics
+## 📨 Kafka Topics & Data Contracts
 
-| Tên Topic | Nguồn phát (Producer) | Nguồn nhận (Consumer) | Nội dung / Ý nghĩa |
-| :--- | :--- | :--- | :--- |
-| **`raw_events`** | `WebhookService` | `CoreService` | Sự kiện webhook chuẩn hóa nhận được từ Facebook. |
-| **`reply_commands`** | `CoreService` | `BackendApi` | Lệnh gửi bình luận phản hồi hoặc ẩn bình luận của người dùng. |
-| **`send_failed`** | `BackendApi` | `RetryService` | Ghi nhận các lệnh phản hồi bị lỗi khi gọi API Facebook. |
-| **`send_retry`** | `RetryService` | `BackendApi` | Các lệnh lỗi được lên lịch gửi lại sau khoảng thời gian chờ (delay). |
-| **`dead_letter`** | `RetryService` | `Prometheus` (Giám sát) | Hòm thư chết chứa các lệnh thất bại hoàn toàn quá số lần cấu hình (Max: 3). |
-
----
-
-## 🔄 Luồng Nghiệp Vụ Cốt Lõi
-
-### Luồng 1: Bình luận mới $\rightarrow$ Xử lý phản hồi tự động
-1. **Facebook Webhook** gửi dữ liệu POST về đầu endpoint `/webhook` của `WebhookService`.
-2. `WebhookService` xác thực chữ ký số, giải mã dữ liệu, chuyển thành `NormalizedWebhookEvent` và đẩy vào topic `raw_events`.
-3. `CoreService` tiêu thụ sự kiện từ `raw_events`:
-    * Kiểm tra Rate Limit người dùng (Max 20 req/phút).
-    * Kiểm tra xem user có nằm trong danh sách đen `BlacklistedUsers` hay không.
-    * Kiểm tra nội dung chứa từ cấm hoặc liên kết lừa đảo (`IsSimpleSpam`, `IsMaliciousOrScamContent`).
-    * Gọi **Gemini AI API** phân loại ý định (`intent`) và thái độ (`sentiment`).
-    * Chạy luật nghiệp vụ quyết định hành động tự động (`auto_reply` / `hide_comment` / `blacklist`).
-4. Nếu hành động là `auto_reply`, Core Service đẩy `ReplyCommand` vào topic `reply_commands`.
-5. `BackendApi` tiêu thụ `reply_commands`, kiểm tra phòng tránh lặp lệnh (Idempotency Key) bằng SQL Server, sau đó gọi **Facebook Graph API** trả lời thực tế trên trang của người dùng.
-
-### Luồng 2: Thất bại khi gửi $\rightarrow$ Thử lại & Dead Letter Queue
-1. `BackendApi` gặp sự cố khi gọi API Facebook (mất mạng, hết token, quá tải...).
-2. Exception được bắt lại, hệ thống phân loại lỗi (`IsRetryable`):
-    * Lỗi có thể thử lại (Mạng, Timeout, HTTP 429, HTTP 5xx) $\rightarrow$ Đóng gói thành `SendFailedEvent` với cờ `Retryable = true`.
-    * Lỗi không thể thử lại (HTTP 401 Unauthorized...) $\rightarrow$ Đóng gói thành `SendFailedEvent` với cờ `Retryable = false`.
-3. Đẩy `SendFailedEvent` vào topic `send_failed`.
-4. `RetryService` tiêu thụ sự kiện lỗi này:
-    * Nếu lỗi không thể thử lại hoặc số lần thử lại đã đạt mức tối đa (Max: 3) $\rightarrow$ Chuyển đổi thành `DeadLetterEvent` và đẩy vào topic **`dead_letter`** (DLQ).
-    * Nếu lỗi có thể thử lại và lượt thử <= 3 $\rightarrow$ Chờ độ trễ lũy thừa (ví dụ: $2^{RetryCount}$ giây), tăng số lần thử lại (`RetryCount++`), sau đó đẩy ngược lệnh vào topic **`send_retry`** để `BackendApi` tiêu thụ và gửi lại.
+| Tên Topic | Producers | Consumers | Schema Contract | Mục đích / Nghiệp vụ |
+| :--- | :--- | :--- | :--- | :--- |
+| **`raw_events`** | `WebhookService` | `CoreService`, `AnalyticsService` | `normalized_webhook_event.json` | Sự kiện webhook chuẩn hóa từ Facebook. |
+| **`reply_commands`** | `CoreService` | `BackendApi`, `AnalyticsService` | `reply_command.json` | Lệnh phản hồi tự động / ẩn comment. |
+| **`send_failed`** | `BackendApi` | `RetryService` | `SendFailedEvent` | Lệnh gửi thất bại cần đánh giá thử lại. |
+| **`send_retry`** | `RetryService` | `BackendApi` | `ReplyCommand` | Lệnh lỗi được lên lịch gửi lại sau thời gian chờ. |
+| **`dead_letter`** | `RetryService` | `AnalyticsService`, `Prometheus` | `DeadLetterEvent` | Hòm thư chết (DLQ) chứa lệnh lỗi vĩnh viễn hoặc quá số lần thử. |
 
 ---
 
-## 📈 Giám sát & Cảnh báo (Monitoring)
-
-Dự án cài đặt hệ thống giám sát thời gian thực tự động:
-1. **Kafka Exporter** lấy số liệu thông số của Kafka Broker và chuyển đổi sang dạng Prometheus.
-2. **Prometheus** thu thập chỉ số đó và chạy luật đánh giá cảnh báo. Cụ thể: Nếu topic `dead_letter` nhận thêm bất kỳ tin nhắn lỗi nào trong vòng 1 phút, Prometheus lập tức kích hoạt cảnh báo `DeadLetterTopicReceivedMessages`.
-3. Cảnh báo được chuyển sang **Alertmanager**.
-4. **Alertmanager** gửi HTTP POST chứa JSON chi tiết lỗi tới webhook server Python (`alert-webhook`) để in ra log hoặc gửi thông báo.
-
----
-
-## ⚡ Hướng dẫn cài đặt nhanh
+## ⚡ Hướng dẫn Chạy Hệ thống
 
 ### 1. Chuẩn bị biến môi trường
-Tạo file `.env` tại thư mục gốc từ file `.env.example`:
+Tạo file `.env` từ `.env.example`:
 ```powershell
 Copy-Item .env.example .env
 ```
-Mở file `.env` và điền khóa API Gemini của bạn:
+Điền các biến API Token cần thiết trong file `.env`:
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key
+FACEBOOK_PAGE_ACCESS_TOKEN=your_token_or_leave_dummy
+ADMIN_API_KEY=admin-secret-key-123
 ```
 
 ### 2. Khởi chạy toàn bộ hệ thống bằng Docker Compose
-Chạy lệnh duy nhất để build và khởi tạo toàn bộ database SQL Server, Kafka, và 4 Microservices:
 ```powershell
 docker compose up --build -d
 ```
 
-### 3. Danh sách các cổng dịch vụ cục bộ
-*   **Backend API Dashboard**: `http://localhost:3000`
-*   **Webhook Service (FB Endpoint)**: `http://localhost:3001`
-*   **Core Service**: `http://localhost:3002`
-*   **Retry Service**: `http://localhost:3003`
-*   **Kafka UI (Quản lý Kafka)**: `http://localhost:8085`
-*   **Prometheus Console**: `http://localhost:9090`
-*   **Alertmanager Console**: `http://localhost:9093`
-*   **Alert Webhook Logs**: chạy `docker compose logs -f alert-webhook`
+### 3. Đăng ký Data Contracts lên Schema Registry
+```powershell
+python scripts/register_schemas.py
+```
+
+### 4. Danh sách các Cổng Dịch vụ (Web UI)
+*   🌐 **Streamlit Real-Time Dashboard**: [`http://localhost:8501`](http://localhost:8501)
+*   📊 **Kafka UI (Quản lý Broker & Topics)**: [`http://localhost:8085`](http://localhost:8085)
+*   📈 **Prometheus Alerts & Metrics**: [`http://localhost:9090`](http://localhost:9090)
+*   🚨 **Alertmanager Incident Board**: [`http://localhost:9093`](http://localhost:9093)
+*   🔌 **Backend API Proxy**: [`http://localhost:3000`](http://localhost:3000)
+*   📥 **Facebook Webhook Endpoint**: `POST http://localhost:3001/webhook`
+*   📜 **Confluent Schema Registry**: [`http://localhost:8081`](http://localhost:8081)
 
 ---
 
-## 📑 Tài liệu Hướng dẫn bổ sung
-*   **[TESTING.md](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/TESTING.md)**: Chi tiết các bước và lệnh cURL giả lập kịch bản Webhook, Test AI, Test lỗi gửi tin và Retry tự động.
-*   **[FACEBOOK_SUBSCRIPTION.md](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/FACEBOOK_SUBSCRIPTION.md)**: Hướng dẫn đăng ký Webhook và cấu hình ứng dụng trên Cổng nhà phát triển Meta Developer Portal.
+## 🧪 Kịch bản Kiểm thử & Demo Chuyên sâu
+
+Chạy bộ công cụ kiểm thử tải & lỗi:
+```powershell
+python scripts/chaos_and_load_test.py
+```
+*   **Kịch bản 1 (Traffic thực tế):** Bắn 20 bình luận ngẫu nhiên để quan sát phân loại tích cực, tiêu cực, hỏi giá và ẩn comment spam trên Streamlit.
+*   **Kịch bản 2 (Burst Load 500 requests - Backpressure Test):** Bắn đồng thời 500 request trong vài giây. Quan sát Consumer Lag tăng vọt trên Kafka UI & Prometheus, đồ thị Comment Velocity trên Streamlit bật cảnh báo Anomaly Spike, hệ thống hấp thụ tải mượt mà không crash.
+*   **Kịch bản 3 (Blacklist Automation):** Bắn 3 bình luận spam liên tiếp từ 1 user để kích hoạt rule Blacklist nội bộ trong 24 giờ.
