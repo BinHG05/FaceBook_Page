@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -35,8 +36,19 @@ def make_request(url, method="GET", data=None):
         except Exception:
             return e.code, {"error": error_body}
     except Exception as e:
-        print(f"❌ Connection error to {url}: {e}")
-        return None, None
+        return None, str(e)
+
+def wait_for_schema_registry(max_retries=20, delay_sec=2):
+    print(f"🔌 Probing Confluent Schema Registry at: {SCHEMA_REGISTRY_URL}")
+    for attempt in range(1, max_retries + 1):
+        status, _ = make_request(f"{SCHEMA_REGISTRY_URL.rstrip('/')}/subjects")
+        # Confluent Schema Registry responds with 200 (if subjects exist) or 404 (when empty/fresh) once ready
+        if status in (200, 404):
+            print(f"✅ Schema Registry is ready and responsive! (Status: {status}, Attempt: {attempt})")
+            return True
+        print(f"⏳ Waiting for Schema Registry to become ready... ({attempt}/{max_retries})")
+        time.sleep(delay_sec)
+    return False
 
 def set_compatibility(subject, compatibility="BACKWARD"):
     url = f"{SCHEMA_REGISTRY_URL.rstrip('/')}/config/{subject}"
@@ -83,9 +95,7 @@ def check_registered_subjects():
         print(f"❌ Could not retrieve subjects: {res}")
 
 if __name__ == "__main__":
-    print(f"🔌 Checking Confluent Schema Registry at: {SCHEMA_REGISTRY_URL}")
-    status, _ = make_request(f"{SCHEMA_REGISTRY_URL.rstrip('/')}/subjects")
-    if status is None:
+    if not wait_for_schema_registry(max_retries=20, delay_sec=2):
         print("❌ Cannot connect to Schema Registry. Make sure Docker container 'schema-registry' is running.")
         sys.exit(1)
 

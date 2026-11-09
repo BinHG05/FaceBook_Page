@@ -57,13 +57,17 @@ jobs:
       - name: ⏳ Wait for Platform Services to Initialize
         run: |
           echo "Waiting for services to become healthy..."
-          for i in {1..30}; do
-            if curl -s http://localhost:3001/health | grep -q "healthy" && curl -s http://localhost:3000/health | grep -q "healthy"; then
-              echo "✅ WebhookService and BackendApi are healthy!"
+          for i in {1..35}; do
+            WEBHOOK_OK=$(curl -s http://localhost:3001/health | grep -q "healthy" && echo "1" || echo "0")
+            BACKEND_OK=$(curl -s http://localhost:3000/health | grep -q "healthy" && echo "1" || echo "0")
+            SR_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081 || echo "000")
+
+            if [ "$WEBHOOK_OK" = "1" ] && [ "$BACKEND_OK" = "1" ] && ([ "$SR_CODE" = "200" ] || [ "$SR_CODE" = "404" ]); then
+              echo "✅ WebhookService, BackendApi, and Schema Registry are all ready!"
               break
             fi
-            echo "Waiting for containers to boot... ($i/30)"
-            sleep 4
+            echo "Waiting for containers to boot (Webhook: $WEBHOOK_OK, Backend: $BACKEND_OK, SchemaReg: $SR_CODE)... ($i/35)"
+            sleep 3
           done
 
       - name: 📜 Test Data Contracts & Schema Registry Registration
