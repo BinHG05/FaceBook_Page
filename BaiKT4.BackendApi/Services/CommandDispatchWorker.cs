@@ -89,16 +89,14 @@ public sealed class CommandDispatchWorker : BackgroundService
     {
         try
         {
-            UpsertCommandStatus(command, "received");
-
             // Chống lặp lệnh (Idempotency) dựa trên IdempotencyKey
-            if (IsAlreadyHandled(command.IdempotencyKey))
+            if (!TryClaimCommandForDispatch(command))
             {
-                UpsertCommandStatus(command, "duplicate");
                 _logger.LogInformation("Skip duplicate command {CommandId}.", command.CommandId);
                 return;
             }
 
+            // Do not overwrite a completed command status before checking idempotency.
             UpsertCommandStatus(command, "processing");
 
             // ==========================================
@@ -147,18 +145,49 @@ public sealed class CommandDispatchWorker : BackgroundService
         }
     }
 
-    private bool IsAlreadyHandled(string idempotencyKey)
+    private bool TryClaimCommandForDispatch(ReplyCommand command)
     {
         try
         {
             using var connection = new SqlConnection(_connectionString);
             connection.Open();
-            using var command = new SqlCommand("SELECT COUNT(*) FROM ProcessedCommands WHERE idempotency_key = @key AND status NOT IN ('received', 'processing', 'failed')", connection);
-            command.Parameters.AddWithValue("@key", idempotencyKey);
-            return Convert.ToInt32(command.ExecuteScalar()) > 0;
+            using var sql = new SqlCommand(@"
+                SET XACT_ABORT ON;
+                BEGIN TRANSACTION;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM ProcessedCommands WITH (UPDLOCK, HOLDLOCK)
+                    WHERE idempotency_key = @key)
+                BEGIN
+                    INSERT INTO ProcessedCommands (command_id, event_id, idempotency_key, action_type, retry_count, status, processed_at, updated_at)
+                    VALUES (@commandId, @eventId, @key, @actionType, @retryCount, 'processing', GETDATE(), GETDATE());
+                    SELECT CAST(1 AS BIT);
+                END
+                ELSE IF EXISTS (
+                    SELECT 1 FROM ProcessedCommands WITH (UPDLOCK, HOLDLOCK)
+                    WHERE idempotency_key = @key AND status IN ('received', 'failed'))
+                BEGIN
+                    UPDATE ProcessedCommands
+                    SET status = 'processing', retry_count = @retryCount, last_error = NULL, updated_at = GETDATE()
+                    WHERE idempotency_key = @key;
+                    SELECT CAST(1 AS BIT);
+                END
+                ELSE
+                BEGIN
+                    SELECT CAST(0 AS BIT);
+                END
+
+                COMMIT TRANSACTION;", connection);
+            sql.Parameters.AddWithValue("@commandId", command.CommandId);
+            sql.Parameters.AddWithValue("@eventId", command.EventId);
+            sql.Parameters.AddWithValue("@key", command.IdempotencyKey);
+            sql.Parameters.AddWithValue("@actionType", command.ActionType);
+            sql.Parameters.AddWithValue("@retryCount", command.RetryCount);
+            return Convert.ToBoolean(sql.ExecuteScalar());
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to claim command {CommandId} for dispatch.", command.CommandId);
             return false;
         }
     }

@@ -1,10 +1,12 @@
 using BaiKT4.BackendApi.Services;
+using BaiKT4.BackendApi.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace BaiKT4.BackendApi.Controllers;
 
 [ApiController]
 [Route("")]
+[ServiceFilter(typeof(AdminApiKeyFilter))]
 public sealed class FacebookProxyController : ControllerBase
 {
     private readonly IFacebookGraphService _facebookGraphService;

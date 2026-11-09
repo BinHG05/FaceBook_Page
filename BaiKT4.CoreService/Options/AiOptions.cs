@@ -8,7 +8,7 @@ public sealed class AiOptions
 
     public string ApiBaseUrl { get; set; } = "https://generativelanguage.googleapis.com/v1beta";
 
-    public string Model { get; set; } = "gemini-3.1-flash-lite";
+    public string Model { get; set; } = "gemini-3.8-flash-lite";
 
     public string ApiKey { get; set; } = string.Empty;
 

@@ -113,15 +113,14 @@ public sealed class CoreEventProcessingWorker : BackgroundService
                 return;
             }
 
-            UpsertEventStatus(webhookEvent.EventId, "received");
-
             // Chống trùng lặp (Idempotency) dựa trên EventId
-            if (IsAlreadyProcessed(webhookEvent.EventId))
+            if (!TryClaimEventForProcessing(webhookEvent.EventId))
             {
                 _logger.LogInformation("Skip duplicate event {EventId}.", webhookEvent.EventId);
                 return;
             }
 
+            // Do not overwrite a completed status before checking idempotency.
             var content = webhookEvent.MessageText?.Trim() ?? string.Empty;
             var userId = webhookEvent.Actor?.Id ?? "unknown";
 
@@ -244,16 +243,16 @@ public sealed class CoreEventProcessingWorker : BackgroundService
             return new ModerationDecision("alert_admin", "pending_review", null, "blacklisted_user", true);
         }
 
-        if (isMalicious)
-        {
-            return new ModerationDecision("hide_comment", "pending_review", null, "malicious_link_or_scam", true);
-        }
-
-        if (isSpam || intent == "spam")
+        if (isSpam || isMalicious || intent == "spam")
         {
             if (CountRecentSpamActions(userId, TimeSpan.FromHours(24)) >= 2)
             {
                 return new ModerationDecision("blacklist", "blacklisted", null, "spam_repeat_24h", true, true);
+            }
+
+            if (isMalicious)
+            {
+                return new ModerationDecision("hide_comment", "pending_review", null, "malicious_link_or_scam", true);
             }
 
             return new ModerationDecision("hide_comment", "moderated", null, "spam_detected");
@@ -451,19 +450,45 @@ public sealed class CoreEventProcessingWorker : BackgroundService
         }
     }
 
-    private bool IsAlreadyProcessed(string eventId)
+    private bool TryClaimEventForProcessing(string eventId)
     {
         try
         {
             using var connection = new SqlConnection(_connectionString);
             connection.Open();
-            using var command = new SqlCommand("SELECT COUNT(*) FROM ProcessedEvents WHERE event_id = @eventId AND status NOT IN ('received', 'processing')", connection);
+            using var command = new SqlCommand(@"
+                SET XACT_ABORT ON;
+                BEGIN TRANSACTION;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM ProcessedEvents WITH (UPDLOCK, HOLDLOCK)
+                    WHERE event_id = @eventId)
+                BEGIN
+                    INSERT INTO ProcessedEvents (event_id, status, processed_at, updated_at)
+                    VALUES (@eventId, 'processing', GETDATE(), GETDATE());
+                    SELECT CAST(1 AS BIT);
+                END
+                ELSE IF EXISTS (
+                    SELECT 1 FROM ProcessedEvents WITH (UPDLOCK, HOLDLOCK)
+                    WHERE event_id = @eventId AND status = 'received')
+                BEGIN
+                    UPDATE ProcessedEvents
+                    SET status = 'processing', updated_at = GETDATE()
+                    WHERE event_id = @eventId;
+                    SELECT CAST(1 AS BIT);
+                END
+                ELSE
+                BEGIN
+                    SELECT CAST(0 AS BIT);
+                END
+
+                COMMIT TRANSACTION;", connection);
             command.Parameters.AddWithValue("@eventId", eventId);
-            return Convert.ToInt32(command.ExecuteScalar()) > 0;
+            return Convert.ToBoolean(command.ExecuteScalar());
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to check duplicate event {EventId}.", eventId);
+            _logger.LogWarning(ex, "Failed to claim event {EventId} for processing.", eventId);
             return false;
         }
     }
