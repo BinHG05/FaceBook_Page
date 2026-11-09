@@ -1,7 +1,8 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using FbStream.Contracts.Models;
+using FbStream.Contracts.Validation;
 using FbStream.CoreService.Options;
 using Microsoft.Extensions.Options;
 
@@ -21,7 +22,15 @@ public sealed class ReplyCommandPublisher : IReplyCommandPublisher
 
     public async Task PublishAsync(IEnumerable<ReplyCommand> commands, CancellationToken cancellationToken)
     {
-        var records = commands.Select(command => new
+        var commandList = commands.ToList();
+
+        // 🛡️ Data Contract & Schema Enforcement on Write
+        foreach (var command in commandList)
+        {
+            ContractValidator.Validate(command);
+        }
+
+        var records = commandList.Select(command => new
         {
             key = ToBase64(command.CommandId),
             value = ToBase64(JsonSerializer.Serialize(command, JsonOptions))

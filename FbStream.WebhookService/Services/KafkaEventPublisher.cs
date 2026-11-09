@@ -1,7 +1,8 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using FbStream.Contracts.Models;
+using FbStream.Contracts.Validation;
 using FbStream.WebhookService.Options;
 using Microsoft.Extensions.Options;
 
@@ -21,7 +22,15 @@ public sealed class KafkaEventPublisher : IKafkaEventPublisher
 
     public async Task PublishAsync(IEnumerable<NormalizedWebhookEvent> events, CancellationToken cancellationToken)
     {
-        var records = events.Select(webhookEvent => new
+        var eventList = events.ToList();
+
+        // 🛡️ Data Contract & Schema Enforcement on Write
+        foreach (var webhookEvent in eventList)
+        {
+            ContractValidator.Validate(webhookEvent);
+        }
+
+        var records = eventList.Select(webhookEvent => new
         {
             key = ToBase64(webhookEvent.PageId ?? webhookEvent.SourceEventId ?? webhookEvent.EventId),
             value = ToBase64(JsonSerializer.Serialize(webhookEvent, JsonOptions))
