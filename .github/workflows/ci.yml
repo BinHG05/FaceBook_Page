@@ -1,0 +1,117 @@
+name: FbStream Streaming CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, "feature/**" ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-verify:
+    name: 🔨 Build & Lint Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup .NET 9 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: 📦 Restore .NET Dependencies
+        run: dotnet restore FbStream.Platform.sln
+
+      - name: 🛠️ Build .NET Microservices
+        run: dotnet build FbStream.Platform.sln --no-restore --configuration Release
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 🔍 Lint & Syntax Check Python Scripts
+        run: |
+          python -m py_compile scripts/register_schemas.py scripts/chaos_and_load_test.py
+          python -m py_compile analytics/db.py analytics/stream_consumer.py analytics/dashboard.py
+
+  integration-test:
+    name: 🧪 Streaming Integration & Resilience Test
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 🐳 Start Platform Infrastructure via Docker Compose
+        run: |
+          docker compose up -d sqlserver kafka schema-registry kafka-rest-proxy kafka-exporter prometheus alertmanager webhook-service core-service backend-api retry-service analytics-dashboard
+
+      - name: ⏳ Wait for Platform Services to Initialize
+        run: |
+          echo "Waiting for services to become healthy..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3001/health | grep -q "healthy" && curl -s http://localhost:3000/health | grep -q "healthy"; then
+              echo "✅ WebhookService and BackendApi are healthy!"
+              break
+            fi
+            echo "Waiting for containers to boot... ($i/30)"
+            sleep 4
+          done
+
+      - name: 📜 Test Data Contracts & Schema Registry Registration
+        run: |
+          python scripts/register_schemas.py
+
+      - name: ⚡ Run Streaming Smoke & Resilience Test
+        run: |
+          echo "Running automated smoke test (Sending sample positive event)..."
+          python -c '
+          import urllib.request, json, time
+          payload = {
+              "object": "page",
+              "entry": [{
+                  "id": "1029208276949641",
+                  "time": int(time.time()),
+                  "changes": [{
+                      "field": "feed",
+                      "value": {
+                          "item": "comment",
+                          "verb": "add",
+                          "comment_id": "ci_test_cmt_001",
+                          "post_id": "1029208276949641_post_ci",
+                          "message": "Dịch vụ của shop rất tuyệt vời, sẽ ủng hộ tiếp!",
+                          "created_time": time.strftime("%Y-%m-%dT%H:%M:%S+07:00"),
+                          "from": {"id": "ci_user_001", "name": "CI User"}
+                      }
+                  }]
+              }]
+          }
+          req = urllib.request.Request("http://localhost:3001/webhook", data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"})
+          with urllib.request.urlopen(req, timeout=10) as resp:
+              assert resp.status == 200
+              print(f"✅ Webhook response status: {resp.status}")
+          '
+
+      - name: 📊 Inspect Docker Logs on Failure
+        if: failure()
+        run: |
+          echo "=== WEBHOOK SERVICE LOGS ==="
+          docker compose logs webhook-service
+          echo "=== CORE SERVICE LOGS ==="
+          docker compose logs core-service
+          echo "=== BACKEND API LOGS ==="
+          docker compose logs backend-api
+
+      - name: 🛑 Teardown Platform Containers
+        if: always()
+        run: |
+          docker compose down -v
+
