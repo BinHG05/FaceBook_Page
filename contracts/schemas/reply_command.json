@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReplyCommand",
+  "type": "object",
+  "properties": {
+    "commandId": {
+      "type": "string",
+      "description": "Unique UUID for this execution command"
+    },
+    "eventId": {
+      "type": "string",
+      "description": "Originating event ID"
+    },
+    "pageId": {
+      "type": "string"
+    },
+    "userId": {
+      "type": "string"
+    },
+    "commentId": {
+      "type": ["string", "null"]
+    },
+    "postId": {
+      "type": ["string", "null"]
+    },
+    "actionType": {
+      "type": "string",
+      "enum": ["auto_reply", "hide_comment", "blacklist", "alert_admin", "none"]
+    },
+    "replyMessage": {
+      "type": ["string", "null"]
+    },
+    "idempotencyKey": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "retryCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object"
+    }
+  },
+  "required": ["commandId", "eventId", "pageId", "userId", "actionType", "idempotencyKey"]
+}
+
