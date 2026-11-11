@@ -1,6 +1,7 @@
 groups:
-  - name: dead-letter-monitoring
+  - name: streaming-platform-alerts
     rules:
+      # 1. Cảnh báo khẩn cấp khi có tin nhắn rơi vào Dead Letter Queue (DLQ)
       - alert: DeadLetterTopicReceivedMessages
         expr: sum(increase(kafka_topic_partition_current_offset{topic="dead_letter"}[1m])) > 0
         for: 15s
@@ -8,5 +9,27 @@ groups:
           severity: critical
           service: retry-service
         annotations:
-          summary: "dead_letter topic has new messages"
-          description: "Kafka dead_letter topic received at least one new message in the last minute."
+          summary: "Dead Letter Queue has received poison/unrecoverable messages"
+          description: "Kafka topic 'dead_letter' received new messages. Investigate command payload or token expiration."
+
+      # 2. Cảnh báo Consumer Lag cao (Ùn ứ sự kiện do tải đột biến hoặc downstream chậm)
+      - alert: KafkaConsumerLagHigh
+        expr: sum(kafka_consumergroup_lag{consumergroup=~"core-service.*|backend-api.*|analytics.*"}) by (consumergroup) > 50
+        for: 30s
+        labels:
+          severity: warning
+          service: kafka-stream
+        annotations:
+          summary: "Consumer lag is elevated on {{ $labels.consumergroup }}"
+          description: "Consumer lag reached {{ $value }} messages. Backpressure is being buffered in Kafka partition."
+
+      # 3. Cảnh báo Lưu lượng tăng đột biến (Traffic Burst / Viral Post Anomaly)
+      - alert: IngestionTrafficSpike
+        expr: sum(rate(kafka_topic_partition_current_offset{topic="raw_events"}[1m])) > 5
+        for: 15s
+        labels:
+          severity: warning
+          service: webhook-service
+        annotations:
+          summary: "High ingestion rate spike on raw_events topic"
+          description: "Webhook raw_events ingestion rate is {{ $value }} msgs/sec, indicating a viral post or bot influx."

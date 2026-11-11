@@ -1,4 +1,4 @@
-# Hướng dẫn Kiểm thử Hệ thống (Testing Guide)
+﻿# Hướng dẫn Kiểm thử Hệ thống (Testing Guide)
 
 Tài liệu này hướng dẫn chi tiết cách kiểm thử các luồng nghiệp vụ trong dự án, bao gồm chạy giả lập ngoại tuyến (Offline Mode) và tích hợp các kịch bản lỗi để kiểm tra luồng **Retry** và **Dead Letter Queue (DLQ)**.
 
@@ -22,7 +22,7 @@ docker compose ps
 Để thực hiện kiểm thử nhanh mà không cần liên kết trực tiếp với Facebook Developer Portal, chúng ta sẽ giả lập các sự kiện gửi từ Facebook Webhook bằng công cụ `cURL` thông qua các mẫu dữ liệu trong thư mục `samples/`.
 
 ### Kịch bản 1.1: Gửi bình luận hỏi giá (Tự động trả lời qua AI)
-Sự kiện [positive-event.json](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/samples/positive-event.json) chứa bình luận hỏi giá sản phẩm của khách hàng:
+Sự kiện [positive-event.json](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/samples/positive-event.json) chứa bình luận hỏi giá sản phẩm của khách hàng:
 ```powershell
 curl -X POST http://localhost:3001/webhook `
   -H "Content-Type: application/json" `
@@ -36,7 +36,7 @@ curl -X POST http://localhost:3001/webhook `
     *   Backend API tiêu thụ lệnh và in ra log xử lý thành công (chế độ giả lập `SimulateMode=true`).
 
 ### Kịch bản 1.2: Gửi bình luận chứa từ cấm hoặc liên kết lừa đảo (Spam/Malicious)
-Sự kiện [spam-event.json](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/samples/spam-event.json) chứa liên kết độc hại hoặc từ khóa cấm:
+Sự kiện [spam-event.json](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/samples/spam-event.json) chứa liên kết độc hại hoặc từ khóa cấm:
 ```powershell
 curl -X POST http://localhost:3001/webhook `
   -H "Content-Type: application/json" `
@@ -59,7 +59,7 @@ Luồng này kiểm thử khả năng phục hồi của hệ thống khi quá t
 ### Kịch bản 2.1: Lỗi có thể thử lại (Retryable Error) - Lỗi mất kết nối mạng
 Chúng ta sẽ giả lập lỗi kết nối bằng cách chỉnh cấu hình Base URL của API Facebook sang một địa chỉ không tồn tại (lỗi phân giải DNS/timeout).
 
-1.  Mở file [docker-compose.yml](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/docker-compose.yml) tại cấu hình của dịch vụ `backend-api` (dòng 173-200).
+1.  Mở file [docker-compose.yml](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/docker-compose.yml) tại cấu hình của dịch vụ `backend-api` (dòng 173-200).
 2.  Thay đổi các biến cấu hình để tắt chế độ giả lập (`SimulateMode = false`) và trỏ URL sang một tên miền lỗi:
     ```yaml
     FacebookGraph__SimulateMode: "false"
@@ -75,7 +75,7 @@ Chúng ta sẽ giả lập lỗi kết nối bằng cách chỉnh cấu hình Ba
     curl -X POST http://localhost:3001/webhook -H "Content-Type: application/json" --data-binary "@samples/positive-event.json"
     ```
 5.  **Quan sát tiến trình chạy**:
-    *   **Lần gửi thứ nhất**: [CommandDispatchWorker](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/BaiKT4.BackendApi/Services/CommandDispatchWorker.cs) ở Backend API nhận lệnh và cố gắng gọi HTTP Client sang tên miền lỗi. Yêu cầu thất bại ném ra `HttpRequestException`.
+    *   **Lần gửi thứ nhất**: [CommandDispatchWorker](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/FbStream.BackendApi/Services/CommandDispatchWorker.cs) ở Backend API nhận lệnh và cố gắng gọi HTTP Client sang tên miền lỗi. Yêu cầu thất bại ném ra `HttpRequestException`.
     *   Do không có mã trạng thái HTTP (không kết nối được), hàm `IsRetryable` đánh giá là **Retryable = true**. Backend API đẩy sự kiện lỗi vào topic `send_failed`.
     *   **Retry Service** tiêu thụ lỗi từ `send_failed`, ghi nhận `RetryCount = 0` (lần đầu tiên lỗi). Nó tính toán thời gian trễ $2^0 = 1$ giây, thực hiện `await Task.Delay(1000)` rồi đẩy lại lệnh với `RetryCount = 1` vào topic **`send_retry`**.
     *   **Lần thử lại thứ nhất**: Backend API nhận lệnh từ `send_retry`, gửi lại và tiếp tục thất bại. Lỗi đẩy sang `send_failed`.
@@ -87,7 +87,7 @@ Chúng ta sẽ giả lập lỗi kết nối bằng cách chỉnh cấu hình Ba
 ### Kịch bản 2.2: Lỗi KHÔNG THỂ thử lại (Non-Retryable Error) - Sai token (401 Unauthorized)
 Nếu mã lỗi phản hồi từ Facebook Graph API xác định chắc chắn rằng lệnh gửi lại sẽ tiếp tục thất bại (như sai token truy cập), hệ thống sẽ chuyển thẳng tin nhắn vào DLQ mà không thử lại để tránh lãng phí tài nguyên.
 
-1.  Cấu hình lại dịch vụ `backend-api` trong [docker-compose.yml](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/BaiKT4/docker-compose.yml):
+1.  Cấu hình lại dịch vụ `backend-api` trong [docker-compose.yml](file:///d:/N%C4%83m%203%20-%20K%E1%BB%B3%202/API/FbStream/docker-compose.yml):
     ```yaml
     FacebookGraph__SimulateMode: "false"
     FacebookGraph__BaseUrl: "https://graph.facebook.com/v25.0"

@@ -1,8 +1,27 @@
+# Environment variables
 .env
 **/.env
+
+# .NET Build artifacts
 **/bin/
 **/obj/
 .vs/
 *.user
 *.suo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite
+*.sqlite3
+*.db
+analytics/data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
 ~$*.docx
+*.docx
