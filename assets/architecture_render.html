@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>FbStream Enterprise Streaming Architecture</title>
+  <title>FbStream Enterprise Dual-Stream Architecture</title>
   <style>
     * {
       box-sizing: border-box;
@@ -10,8 +10,8 @@
       padding: 0;
     }
     body {
-      width: 1540px;
-      height: 900px;
+      width: 1640px;
+      height: 980px;
       background-color: #ffffff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       color: #0f172a;
@@ -23,9 +23,9 @@
     /* Top Section Headers */
     .section-headers {
       position: absolute;
-      top: 36px;
+      top: 28px;
       left: 0;
-      width: 1540px;
+      width: 1640px;
       display: flex;
       font-size: 19px;
       font-weight: 700;
@@ -34,21 +34,21 @@
     }
     .header-ingestion {
       position: absolute;
-      left: 175px;
+      left: 200px;
       transform: translateX(-50%);
     }
     .header-streaming {
       position: absolute;
-      left: 690px;
+      left: 770px;
       transform: translateX(-50%);
     }
-    .header-reporting {
+    .header-execution {
       position: absolute;
-      left: 1315px;
+      left: 1370px;
       transform: translateX(-50%);
     }
 
-    /* Dashed Container Boxes */
+    /* Dashed Container Boxes (Snowflake Style) */
     .dashed-box {
       position: absolute;
       border: 1.5px dashed #475569;
@@ -60,12 +60,15 @@
       top: 12px;
       left: 16px;
       font-size: 13px;
-      font-weight: 600;
-      color: #334155;
+      font-weight: 700;
+      color: #1e293b;
       letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    /* Standard Component Action Cards */
+    /* Standard Enterprise Cards */
     .node-box {
       position: absolute;
       background: #ffffff;
@@ -90,16 +93,22 @@
       margin-top: 2px;
     }
 
-    /* Tech Brand Nodes (Logo + Text) */
+    /* Spine Primary Cards (Slightly bolder) */
+    .spine-card {
+      border: 1.75px solid #0f172a;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    /* Tech Brand Nodes */
     .brand-node {
       position: absolute;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
       z-index: 10;
     }
     .brand-node .brand-name {
-      font-size: 15px;
+      font-size: 14.5px;
       font-weight: 700;
       color: #0f172a;
       letter-spacing: -0.02em;
@@ -115,8 +124,8 @@
       position: absolute;
       top: 0;
       left: 0;
-      width: 1540px;
-      height: 900px;
+      width: 1640px;
+      height: 980px;
       pointer-events: none;
       z-index: 5;
     }
@@ -124,9 +133,9 @@
     /* Bottom Observability Bar (Monte Carlo Style) */
     .bottom-bar {
       position: absolute;
-      bottom: 35px;
-      left: 55px;
-      width: 1430px;
+      bottom: 30px;
+      left: 50px;
+      width: 1540px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -136,7 +145,7 @@
       background: #ffffff;
       border: 1.5px solid #0f172a;
       border-radius: 4px;
-      padding: 8px 24px;
+      padding: 8px 28px;
       display: flex;
       align-items: center;
       gap: 14px;
@@ -160,98 +169,99 @@
 
   <!-- Top Headers -->
   <div class="section-headers">
-    <div class="header-ingestion">Ingestion</div>
-    <div class="header-streaming">Streaming Core &amp; Intelligence</div>
-    <div class="header-reporting">Reporting &amp; Actions</div>
+    <div class="header-ingestion">Ingestion &amp; Security</div>
+    <div class="header-streaming">Event Streaming Broker &amp; AI Intelligence</div>
+    <div class="header-execution">Action Delivery &amp; Real-Time Analytics</div>
   </div>
 
   <!-- ========================================================================= -->
-  <!-- 1. INGESTION COLUMN                                                       -->
+  <!-- TOP DASHED BOX: REAL-TIME STREAMING ANALYTICS (ANALYTICAL STREAM)         -->
   <!-- ========================================================================= -->
-
-  <!-- Source 1: Facebook Live Webhooks -->
-  <div class="node-box" style="top: 130px; left: 40px; width: 140px; height: 56px;">
-    <span>Facebook Feed</span>
-    <span class="subtext">Live Comments &amp; Events</span>
-  </div>
-
-  <!-- Source 2: Chaos & Burst Traffic -->
-  <div class="node-box" style="top: 230px; left: 40px; width: 140px; height: 56px;">
-    <span>Load &amp; Chaos Traffic</span>
-    <span class="subtext">500 req Burst &amp; Spammer</span>
-  </div>
-
-  <!-- Source 3: External / Partner Ingestion -->
-  <div class="node-box" style="top: 330px; left: 40px; width: 140px; height: 56px;">
-    <span>Partner Ingestion</span>
-    <span class="subtext">External Webhook Events</span>
-  </div>
-
-  <!-- Brand: Meta Webhook Gateway (like Fivetran in reference) -->
-  <div class="brand-node" style="top: 140px; left: 225px;">
-    <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
-      <path d="M18 36C27.9411 36 36 27.9411 36 18C36 8.05887 27.9411 0 18 0C8.05887 0 0 8.05887 0 18C0 27.9411 8.05887 36 18 36Z" fill="#1877F2"/>
-      <path d="M24.75 18C23.25 18 22.05 18.9 21.45 20.1C20.55 17.55 18.9 15.6 16.8 15.6C14.1 15.6 12 17.85 12 20.7C12 23.55 14.1 25.8 16.8 25.8C18.45 25.8 19.95 24.9 20.85 23.55C21.45 24.9 22.95 25.8 24.75 25.8C27.05 25.8 28.95 23.85 28.95 21.6C28.95 19.35 27.05 18 24.75 18Z" fill="#ffffff"/>
-    </svg>
-    <div>
-      <div class="brand-name">Meta Gateway</div>
-      <div class="brand-sub">HMAC-SHA256 Auth</div>
+  <div class="dashed-box" style="top: 80px; left: 630px; width: 960px; height: 185px;">
+    <div class="dashed-box-label">
+      <span>Real-Time Streaming Analytics (Analytical Stream &bull; Dual-Stream Architecture)</span>
     </div>
   </div>
 
-  <!-- Brand: Confluent Schema Registry (like Segment in reference) -->
-  <div class="brand-node" style="top: 240px; left: 225px;">
-    <svg width="34" height="34" viewBox="0 0 36 36" fill="none">
-      <rect width="36" height="36" rx="8" fill="#171C28"/>
+  <!-- Analytical Stream: Telemetry Worker -->
+  <div class="node-box" style="top: 130px; left: 660px; width: 260px; height: 56px;">
+    <span>Streaming Telemetry Worker</span>
+    <span class="subtext">Independent Python Consumer (Kafka Group)</span>
+  </div>
+
+  <!-- Analytical Stream: Tumbling & Sliding Window -->
+  <div class="node-box" style="top: 130px; left: 960px; width: 280px; height: 56px;">
+    <span>Window Aggregator &bull; Anomaly Spike</span>
+    <span class="subtext">1-min Tumbling (Velocity) &bull; 5-min Sliding (Sentiment)</span>
+  </div>
+
+  <!-- Analytical Stream: Streamlit Dashboard Brand Node -->
+  <div class="brand-node" style="top: 130px; left: 1280px;">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+      <path d="M16.5 6L12 13.5L9.5 9.5L3 20H21L16.5 6Z" fill="#FF4B4B"/>
+    </svg>
+    <div>
+      <div class="brand-name">Streamlit Dashboard (:8501)</div>
+      <div class="brand-sub">Real-Time Ingestion Charts &bull; Donut &bull; DLQ</div>
+    </div>
+  </div>
+
+  <!-- Kafka UI Inspector (Also in Top Analytics) -->
+  <div class="node-box" style="top: 195px; left: 1280px; width: 275px; height: 48px;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="4" fill="#0284C7"/>
+        <path d="M6 12H18M12 6V18" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <span>Kafka UI Console (:8085)</span>
+    </div>
+    <span class="subtext">Consumer Lag &bull; Offset Inspector</span>
+  </div>
+
+
+  <!-- ========================================================================= -->
+  <!-- MAIN HIGHWAY SPINE (MIDDLE HORIZONTAL PIPELINE: LEFT TO RIGHT)            -->
+  <!-- ========================================================================= -->
+
+  <!-- 1. Source: Facebook Live Webhook -->
+  <div class="node-box spine-card" style="top: 365px; left: 45px; width: 145px; height: 64px;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <svg width="18" height="18" viewBox="0 0 36 36" fill="none">
+        <path d="M18 36C27.9411 36 36 27.9411 36 18C36 8.05887 27.9411 0 18 0C8.05887 0 0 8.05887 0 18C0 27.9411 8.05887 36 18 36Z" fill="#1877F2"/>
+        <path d="M24.75 18C23.25 18 22.05 18.9 21.45 20.1C20.55 17.55 18.9 15.6 16.8 15.6C14.1 15.6 12 17.85 12 20.7C12 23.55 14.1 25.8 16.8 25.8C18.45 25.8 19.95 24.9 20.85 23.55C21.45 24.9 22.95 25.8 24.75 25.8C27.05 25.8 28.95 23.85 28.95 21.6C28.95 19.35 27.05 18 24.75 18Z" fill="#ffffff"/>
+      </svg>
+      <span>Facebook Feed</span>
+    </div>
+    <span class="subtext">Live Comments &amp; Reactions</span>
+  </div>
+
+  <!-- Security Gate (Meta HMAC-SHA256 & Schema Registry) -->
+  <div class="brand-node" style="top: 300px; left: 240px;">
+    <svg width="26" height="26" viewBox="0 0 36 36" fill="none">
+      <rect width="36" height="36" rx="6" fill="#171C28"/>
       <path d="M18 7C11.9249 7 7 11.9249 7 18C7 24.0751 11.9249 29 18 29C23.0827 29 27.3523 25.5539 28.6258 20.8943H24.2882C23.2384 23.3323 20.8242 25 18 25C14.134 25 11 21.866 11 18C11 14.134 14.134 11 18 11C20.8242 11 23.2384 12.6677 24.2882 15.1057H28.6258C27.3523 10.4461 23.0827 7 18 7Z" fill="#29B5E8"/>
     </svg>
     <div>
-      <div class="brand-name">Schema Registry</div>
-      <div class="brand-sub">Contract Enforcement v7.9.6</div>
+      <div class="brand-name" style="font-size: 13.5px;">Schema Registry</div>
+      <div class="brand-sub">Contract Enforcement (:8081)</div>
     </div>
   </div>
 
-  <!-- Webhook Ingestion Service -->
-  <div class="node-box" style="top: 410px; left: 165px; width: 195px; height: 58px;">
-    <span>FbStream.WebhookService</span>
+  <!-- 2. Ingestion Microservice: WebhookService (.NET 9) -->
+  <div class="node-box spine-card" style="top: 365px; left: 235px; width: 190px; height: 64px;">
+    <span style="font-size: 13.5px;">FbStream.WebhookService</span>
     <span class="subtext">.NET 9 Minimal API (&lt;15ms ACK)</span>
   </div>
 
-
-  <!-- ========================================================================= -->
-  <!-- 2. STREAMING CORE & INTELLIGENCE (Dashed Box like Snowflake Warehouse)    -->
-  <!-- ========================================================================= -->
-
-  <div class="dashed-box" style="top: 95px; left: 405px; width: 685px; height: 670px;"></div>
-
-  <!-- Apache Kafka Brand Header inside Warehouse -->
-  <div style="position: absolute; top: 110px; left: 747px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; z-index: 10;">
-    <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
-      <path d="M14.6 10.4L18.8 6.2C19.2 5.8 19.8 5.8 20.2 6.2L24.4 10.4C24.8 10.8 24.8 11.4 24.4 11.8L20.2 16L14.6 10.4Z" fill="#231F20"/>
-      <circle cx="9" cy="16" r="3.2" fill="#231F20"/>
-      <circle cx="21" cy="9" r="3.2" fill="#231F20"/>
-      <circle cx="21" cy="23" r="3.2" fill="#231F20"/>
-      <path d="M9 16L21 9M9 16L21 23" stroke="#231F20" stroke-width="2.2"/>
-    </svg>
-    <span style="font-size: 18px; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">APACHE KAFKA</span>
-    <span style="font-size: 13px; font-weight: 500; color: #64748b;">(Broker v7.9.6)</span>
+  <!-- 3. Stream Processing Microservice: CoreService (.NET 9) -->
+  <div class="node-box spine-card" style="top: 365px; left: 630px; width: 220px; height: 64px;">
+    <span style="font-size: 14px;">FbStream.CoreService</span>
+    <span class="subtext">.NET 9 Event Stream Consumer</span>
   </div>
 
-  <!-- Node: Loading / Event Ingestion Relay -->
-  <div class="node-box" style="top: 195px; left: 425px; width: 110px; height: 54px;">
-    <span>Loading</span>
-    <span class="subtext">Kafka Producer</span>
-  </div>
-
-  <!-- Node: Transforming / Core Processing -->
-  <div class="node-box" style="top: 195px; left: 700px; width: 130px; height: 54px;">
-    <span>Transforming</span>
-    <span class="subtext">FbStream.CoreService</span>
-  </div>
-
-  <!-- Google Gemini AI Brand alongside Transforming (like dbt in reference image) -->
-  <div class="brand-node" style="top: 280px; left: 702px;">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+  <!-- Google Gemini AI Brand alongside CoreService -->
+  <div class="brand-node" style="top: 450px; left: 635px;">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
       <path d="M12 2L13.8 8.2L20 10L13.8 11.8L12 18L10.2 11.8L4 10L10.2 8.2L12 2Z" fill="url(#geminiGrad)"/>
       <defs>
         <linearGradient id="geminiGrad" x1="4" y1="2" x2="20" y2="18" gradientUnits="userSpaceOnUse">
@@ -262,121 +272,90 @@
       </defs>
     </svg>
     <div>
-      <div class="brand-name" style="font-size: 14.5px;">Gemini AI</div>
-      <div class="brand-sub">Intent &amp; Sentiment</div>
+      <div class="brand-name" style="font-size: 14px;">Google Gemini AI</div>
+      <div class="brand-sub">Intent &amp; Sentiment Classification</div>
     </div>
   </div>
 
-  <!-- Rule Engine Node -->
-  <div class="node-box" style="top: 350px; left: 700px; width: 130px; height: 52px;">
-    <span>Rule Engine</span>
-    <span class="subtext">Spam, Rate Limit, Blacklist</span>
+  <!-- Rule Engine Node directly below Gemini AI -->
+  <div class="node-box" style="top: 510px; left: 630px; width: 220px; height: 52px;">
+    <span>Rule Engine &amp; Blacklist Filter</span>
+    <span class="subtext">Rate-Limit &bull; Regex Spam &bull; 24h Repeat Offenses</span>
   </div>
 
-  <!-- Node: Reporting Relay / Dispatch Router -->
-  <div class="node-box" style="top: 195px; left: 960px; width: 110px; height: 54px;">
-    <span>Reporting</span>
-    <span class="subtext">Dispatch Relay</span>
+  <!-- 4. Execution Microservice: BackendApi (.NET 9) -->
+  <div class="node-box spine-card" style="top: 365px; left: 1110px; width: 190px; height: 64px;">
+    <span style="font-size: 14px;">FbStream.BackendApi</span>
+    <span class="subtext">Meta API Dispatcher (.NET 9)</span>
   </div>
 
-  <!-- Sub-Dashed Box: Poison Message Isolation & Circuit Breaker (Like Marketplace Box) -->
-  <div class="dashed-box" style="top: 515px; left: 540px; width: 410px; height: 225px;">
-    <div class="dashed-box-label" style="display: flex; align-items: center; gap: 6px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2">
+  <!-- 5. Destination: Facebook Graph API Live -->
+  <div class="node-box spine-card" style="top: 365px; left: 1380px; width: 210px; height: 64px; background: #f8fafc;">
+    <div style="display: flex; align-items: center; gap: 6px;">
+      <svg width="20" height="20" viewBox="0 0 36 36" fill="none">
+        <path d="M18 36C27.9411 36 36 27.9411 36 18C36 8.05887 27.9411 0 18 0C8.05887 0 0 8.05887 0 18C0 27.9411 8.05887 36 18 36Z" fill="#1877F2"/>
+        <path d="M24.75 18C23.25 18 22.05 18.9 21.45 20.1C20.55 17.55 18.9 15.6 16.8 15.6C14.1 15.6 12 17.85 12 20.7C12 23.55 14.1 25.8 16.8 25.8C18.45 25.8 19.95 24.9 20.85 23.55C21.45 24.9 22.95 25.8 24.75 25.8C27.05 25.8 28.95 23.85 28.95 21.6C28.95 19.35 27.05 18 24.75 18Z" fill="#ffffff"/>
+      </svg>
+      <span>Facebook Graph API v25.0</span>
+    </div>
+    <span class="subtext">Live Comments &bull; Private Replies &bull; Moderation</span>
+  </div>
+
+
+  <!-- ========================================================================= -->
+  <!-- BOTTOM SECTION: RESILIENCE, RETRY SERVICE, SQL SERVER & DLQ               -->
+  <!-- ========================================================================= -->
+
+  <!-- Chaos Test Source (Feeding into WebhookService from bottom) -->
+  <div class="node-box" style="top: 480px; left: 45px; width: 145px; height: 58px;">
+    <span>Chaos &amp; Burst Simulator</span>
+    <span class="subtext">500 req Burst &bull; Spammer Test</span>
+  </div>
+
+  <!-- Bottom Center Dashed Box: Fault Tolerance & Poison Isolation -->
+  <div class="dashed-box" style="top: 600px; left: 450px; width: 620px; height: 235px;">
+    <div class="dashed-box-label">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2">
         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
         <line x1="12" y1="9" x2="12" y2="13"/>
         <line x1="12" y1="17" x2="12.01" y2="17"/>
       </svg>
-      <span>Fault-Tolerant Poison Isolation</span>
+      <span>Fault-Tolerant Poison Isolation &amp; Circuit Breaker</span>
     </div>
   </div>
 
-  <div class="node-box" style="top: 560px; left: 565px; width: 140px; height: 50px;">
-    <span>Circuit Breaker</span>
-    <span class="subtext">AI Fallback Isolation</span>
+  <div class="node-box" style="top: 650px; left: 480px; width: 175px; height: 54px;">
+    <span>AI Circuit Breaker</span>
+    <span class="subtext">Auto-Trips (5 fails) &bull; Fallback</span>
   </div>
 
-  <div class="node-box" style="top: 640px; left: 565px; width: 140px; height: 50px;">
-    <span>Manual Review</span>
-    <span class="subtext">Review Queue (Open)</span>
+  <div class="node-box" style="top: 730px; left: 480px; width: 175px; height: 54px;">
+    <span>Manual Review Queue</span>
+    <span class="subtext">Flagged Spammers &bull; Open Queue</span>
   </div>
 
-
-  <!-- ========================================================================= -->
-  <!-- 3. REPORTING & ACTIONS COLUMN (Separate Dashed Boxes like reference)      -->
-  <!-- ========================================================================= -->
-
-  <!-- Top Dashed Box: Data Viz / BI Tools -->
-  <div class="dashed-box" style="top: 95px; left: 1130px; width: 365px; height: 320px;">
-    <div class="dashed-box-label">Data Viz / BI Tools</div>
+  <!-- Non-blocking Retry Service (.NET 9) -->
+  <div class="node-box" style="top: 650px; left: 1110px; width: 190px; height: 60px;">
+    <span style="font-size: 13.5px;">FbStream.RetryService</span>
+    <span class="subtext">Non-blocking Backoff (.NET 9)<br/>2s &bull; 4s &bull; 8s Exponential Delay</span>
   </div>
 
-  <!-- Brand: Streamlit (like HEX / Looker in reference) -->
-  <div class="brand-node" style="top: 140px; left: 1160px;">
-    <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-      <path d="M16.5 6L12 13.5L9.5 9.5L3 20H21L16.5 6Z" fill="#FF4B4B"/>
-    </svg>
-    <div>
-      <div class="brand-name">Streamlit Dashboard</div>
-      <div class="brand-sub">Real-Time Analytics (:8501)</div>
-    </div>
-  </div>
-
-  <!-- Brand: Kafka UI (like Amplitude in reference) -->
-  <div class="brand-node" style="top: 220px; left: 1160px;">
-    <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
-      <rect width="24" height="24" rx="4" fill="#0284C7"/>
-      <path d="M6 12H18M12 6V18" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
-    </svg>
-    <div>
-      <div class="brand-name">Kafka UI Console</div>
-      <div class="brand-sub">Partition Lag Inspector (:8085)</div>
-    </div>
-  </div>
-
-  <!-- Node: Telemetry Worker -->
-  <div class="node-box" style="top: 300px; left: 1160px; width: 305px; height: 52px;">
-    <span>Streaming Telemetry Worker</span>
-    <span class="subtext">1-min Tumbling &amp; 5-min Sliding Window</span>
-  </div>
-
-  <!-- Bottom Dashed Box: Action Execution & Reverse Delivery (like Reverse ETL / Census) -->
-  <div class="dashed-box" style="top: 440px; left: 1130px; width: 365px; height: 325px;">
-    <div class="dashed-box-label">Reverse Action Dispatch &amp; State</div>
-  </div>
-
-  <div class="node-box" style="top: 480px; left: 1160px; width: 140px; height: 54px;">
-    <span>FbStream.Backend</span>
-    <span class="subtext">Meta API Dispatcher</span>
-  </div>
-
-  <div class="node-box" style="top: 480px; left: 1325px; width: 140px; height: 54px;">
-    <span>FbStream.Retry</span>
-    <span class="subtext">Non-blocking Backoff</span>
-  </div>
-
-  <!-- Brand: SQL Server Ledger Database -->
-  <div class="brand-node" style="top: 575px; left: 1160px;">
-    <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+  <!-- Bottom Right: Microsoft SQL Server Persistence -->
+  <div class="brand-node" style="top: 730px; left: 1110px;">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
       <path d="M12 2C6.48 2 2 3.79 2 6V18C2 20.21 6.48 22 12 22C17.52 22 22 20.21 22 18V6C22 3.79 17.52 2 12 2Z" fill="#CC292B"/>
       <path d="M22 6C22 8.21 17.52 10 12 10C6.48 10 2 8.21 2 6" stroke="#ffffff" stroke-width="1.5"/>
       <path d="M22 12C22 14.21 17.52 16 12 16C6.48 16 2 14.21 2 12" stroke="#ffffff" stroke-width="1.5"/>
     </svg>
     <div>
-      <div class="brand-name">Microsoft SQL Server</div>
-      <div class="brand-sub">FbStreamDb (Audit Logs &amp; Blacklist)</div>
+      <div class="brand-name" style="font-size: 14.5px;">Microsoft SQL Server (FbStreamDb)</div>
+      <div class="brand-sub">EventLogs &bull; ProcessedCommands &bull; BlacklistedUsers</div>
     </div>
-  </div>
-
-  <!-- Meta Graph Live API -->
-  <div class="node-box" style="top: 670px; left: 1160px; width: 305px; height: 54px; background: #f8fafc;">
-    <span>Facebook Graph API v25.0</span>
-    <span class="subtext">Live Public Comments &amp; Replies</span>
   </div>
 
 
   <!-- ========================================================================= -->
-  <!-- 4. SVG LAYER: EXACT CYLINDERS, ORTHOGONAL ARROWS & CONNECTORS             -->
+  <!-- SVG LAYER: CYLINDERS, CLEAN ORTHOGONAL ARROWS                             -->
   <!-- ========================================================================= -->
 
   <svg id="svg-layer">
@@ -389,113 +368,143 @@
       <marker id="arrow-red" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
         <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#b91c1c" />
       </marker>
+      <!-- Blue Arrowhead Marker -->
+      <marker id="arrow-blue" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#2563eb" />
+      </marker>
     </defs>
 
-    <!-- ==================== CYLINDER 1: RAW_EVENTS (like Raw in reference) ==================== -->
-    <g transform="translate(575, 180)">
-      <rect x="0" y="15" width="76" height="42" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-      <path d="M 0 57 A 38 12 0 0 0 76 57" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-      <ellipse cx="38" cy="15" rx="38" ry="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-      <text x="38" y="38" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0f172a">Raw</text>
-      <text x="38" y="50" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">raw_events</text>
+    <!-- ==================== BROKER BRAND HEADER IN CENTER ==================== -->
+    <g transform="translate(485, 305)">
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+        <path d="M14.6 10.4L18.8 6.2C19.2 5.8 19.8 5.8 20.2 6.2L24.4 10.4C24.8 10.8 24.8 11.4 24.4 11.8L20.2 16L14.6 10.4Z" fill="#231F20"/>
+        <circle cx="9" cy="16" r="3.2" fill="#231F20"/>
+        <circle cx="21" cy="9" r="3.2" fill="#231F20"/>
+        <circle cx="21" cy="23" r="3.2" fill="#231F20"/>
+        <path d="M9 16L21 9M9 16L21 23" stroke="#231F20" stroke-width="2.2"/>
+      </svg>
+      <text x="32" y="17" font-size="14" font-weight="800" fill="#0f172a" letter-spacing="-0.01em">APACHE KAFKA BROKER (v7.9.6)</text>
     </g>
 
-    <!-- ==================== CYLINDER 2: PROD (like Prod in reference) ==================== -->
-    <g transform="translate(855, 180)">
-      <rect x="0" y="15" width="76" height="42" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-      <path d="M 0 57 A 38 12 0 0 0 76 57" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-      <ellipse cx="38" cy="15" rx="38" ry="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
-      <text x="38" y="38" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0f172a">Prod</text>
-      <text x="38" y="50" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">reply_cmds</text>
+    <!-- ==================== SPACING CYLINDER 1: RAW_EVENTS ==================== -->
+    <g transform="translate(475, 360)">
+      <rect x="0" y="14" width="105" height="46" fill="#ffffff" stroke="#0f172a" stroke-width="1.75" />
+      <path d="M 0 60 A 52.5 12 0 0 0 105 60" fill="#ffffff" stroke="#0f172a" stroke-width="1.75" />
+      <ellipse cx="52.5" cy="14" rx="52.5" ry="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.75" />
+      <text x="52.5" y="38" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">raw_events</text>
+      <text x="52.5" y="51" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">Partition 0-2</text>
+    </g>
+
+    <!-- ==================== SPACING CYLINDER 2: REPLY_COMMANDS ==================== -->
+    <g transform="translate(900, 360)">
+      <rect x="0" y="14" width="125" height="46" fill="#ffffff" stroke="#0f172a" stroke-width="1.75" />
+      <path d="M 0 60 A 62.5 12 0 0 0 125 60" fill="#ffffff" stroke="#0f172a" stroke-width="1.75" />
+      <ellipse cx="62.5" cy="14" rx="62.5" ry="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.75" />
+      <text x="62.5" y="38" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">reply_commands</text>
+      <text x="62.5" y="51" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">Contract Enforced</text>
+    </g>
+
+    <!-- ==================== CYLINDER 3: SEND_RETRY (BELOW SPACING) ==================== -->
+    <g transform="translate(900, 650)">
+      <rect x="0" y="12" width="125" height="42" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
+      <path d="M 0 54 A 62.5 10 0 0 0 125 54" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
+      <ellipse cx="62.5" cy="12" rx="62.5" ry="10" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" />
+      <text x="62.5" y="34" text-anchor="middle" font-size="12" font-weight="700" fill="#0f172a">send_retry</text>
+      <text x="62.5" y="46" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">Backoff Queue</text>
     </g>
 
     <!-- ==================== STACKED DASHED CYLINDERS: DEAD_LETTER ==================== -->
     <!-- (Exact replica of Marketplace stacked dashed cylinders from reference image) -->
-    <g transform="translate(775, 560)">
+    <g transform="translate(730, 650)">
       <!-- Layer 3 (Bottom) -->
-      <g transform="translate(0, 24)">
-        <rect x="0" y="10" width="84" height="34" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <path d="M 0 44 A 42 10 0 0 0 84 44" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <ellipse cx="42" cy="10" rx="42" ry="10" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <g transform="translate(0, 22)">
+        <rect x="0" y="8" width="105" height="30" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <path d="M 0 38 A 52.5 8 0 0 0 105 38" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <ellipse cx="52.5" cy="8" rx="52.5" ry="8" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
       </g>
       <!-- Layer 2 (Middle) -->
-      <g transform="translate(0, 12)">
-        <rect x="0" y="10" width="84" height="34" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <path d="M 0 44 A 42 10 0 0 0 84 44" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <ellipse cx="42" cy="10" rx="42" ry="10" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <g transform="translate(0, 11)">
+        <rect x="0" y="8" width="105" height="30" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <path d="M 0 38 A 52.5 8 0 0 0 105 38" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <ellipse cx="52.5" cy="8" rx="52.5" ry="8" fill="#ffffff" stroke="#475569" stroke-width="1.5" stroke-dasharray="3,3"/>
       </g>
       <!-- Layer 1 (Top) -->
       <g transform="translate(0, 0)">
-        <rect x="0" y="10" width="84" height="34" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <path d="M 0 44 A 42 10 0 0 0 84 44" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <ellipse cx="42" cy="10" rx="42" ry="10" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="3,3"/>
-        <text x="42" y="27" text-anchor="middle" font-size="11.5" font-weight="700" fill="#b91c1c">dead_letter</text>
-        <text x="42" y="38" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">DLQ Topic</text>
+        <rect x="0" y="8" width="105" height="30" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <path d="M 0 38 A 52.5 8 0 0 0 105 38" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <ellipse cx="52.5" cy="8" rx="52.5" ry="8" fill="#ffffff" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="52.5" y="24" text-anchor="middle" font-size="12" font-weight="700" fill="#b91c1c">dead_letter</text>
+        <text x="52.5" y="34" text-anchor="middle" font-size="9" font-weight="500" fill="#64748b">DLQ Topic</text>
       </g>
     </g>
 
 
-    <!-- ==================== CONNECTING ARROWS ==================== -->
+    <!-- ==================== CLEAN HIGHWAY CONNECTING ARROWS ==================== -->
 
-    <!-- Source 1 -> Meta Gateway -->
-    <path d="M 180 158 L 220 158" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Spine 1: Facebook Feed -> WebhookService -->
+    <path d="M 190 397 L 230 397" fill="none" stroke="#0f172a" stroke-width="1.75" marker-end="url(#arrow)"/>
 
-    <!-- Source 2 -> Schema Registry -->
-    <path d="M 180 258 L 220 258" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Chaos Simulator up into WebhookService -->
+    <path d="M 190 509 L 210 509 L 210 410 L 230 410" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- Source 3 -> Direct merge into WebhookService -->
-    <path d="M 180 358 L 262 358 L 262 405" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Schema Registry cross check -->
+    <path d="M 330 330 L 330 360" fill="none" stroke="#64748b" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow)"/>
 
-    <!-- Meta Gateway down into WebhookService -->
-    <path d="M 330 178 L 360 178 L 360 380 L 262 380" fill="none" stroke="#0f172a" stroke-width="1.5" />
+    <!-- Spine 2: WebhookService -> raw_events cylinder -->
+    <path d="M 425 397 L 470 397" fill="none" stroke="#0f172a" stroke-width="1.75" marker-end="url(#arrow)"/>
 
-    <!-- Schema Registry down into WebhookService -->
-    <path d="M 340 275 L 360 275" fill="none" stroke="#0f172a" stroke-width="1.5" />
+    <!-- Spine 3: raw_events cylinder -> CoreService -->
+    <path d="M 580 397 L 625 397" fill="none" stroke="#0f172a" stroke-width="1.75" marker-end="url(#arrow)"/>
 
-    <!-- WebhookService into Loading (Streaming Warehouse entrance) -->
-    <path d="M 360 439 L 395 439 L 395 222 L 420 222" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- CoreService <-> Gemini AI & Rule Engine -->
+    <path d="M 740 429 L 740 445" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <path d="M 740 480 L 740 505" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- [Loading] -> (Raw Cylinder) -->
-    <path d="M 535 222 L 570 222" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Spine 4: CoreService -> reply_commands cylinder -->
+    <path d="M 850 397 L 895 397" fill="none" stroke="#0f172a" stroke-width="1.75" marker-end="url(#arrow)"/>
 
-    <!-- (Raw Cylinder) -> [Transforming] -->
-    <path d="M 651 222 L 695 222" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Spine 5: reply_commands cylinder -> BackendApi -->
+    <path d="M 1025 397 L 1105 397" fill="none" stroke="#0f172a" stroke-width="1.75" marker-end="url(#arrow)"/>
 
-    <!-- [Transforming] <-> Gemini AI & Rule Engine -->
-    <path d="M 765 249 L 765 275" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <path d="M 765 325 L 765 345" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Spine 6: BackendApi -> Facebook Graph API Live -->
+    <path d="M 1300 397 L 1375 397" fill="none" stroke="#0f172a" stroke-width="1.75" marker-end="url(#arrow)"/>
 
-    <!-- [Transforming] -> (Prod Cylinder) -->
-    <path d="M 830 222 L 850 222" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- (Prod Cylinder) -> [Reporting] -->
-    <path d="M 931 222 L 955 222" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- ==================== BRANCH 1: ANALYTICAL STREAM (UPWARDS) ==================== -->
 
-    <!-- [Transforming] branch down to (dead_letter stacked cylinders) (like Marketplace in reference!) -->
-    <path d="M 765 402 L 765 555" fill="none" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-red)"/>
+    <!-- raw_events branch UP to Streaming Telemetry Worker -->
+    <path d="M 527 360 L 527 158 L 655 158" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- Circuit Breaker & Manual Review links into DLQ -->
-    <path d="M 705 585 L 770 585" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <path d="M 705 665 L 745 665 L 745 600 L 770 600" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Telemetry Worker -> Window Aggregator -->
+    <path d="M 920 158 L 955 158" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- [Reporting] to Data Viz / BI Tools (Streamlit Worker) -->
-    <path d="M 1070 222 L 1105 222 L 1105 326 L 1155 326" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- Window Aggregator -> Streamlit Dashboard -->
+    <path d="M 1240 158 L 1275 158" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- Telemetry Worker feeds Streamlit Dashboard & Kafka UI -->
-    <path d="M 1312 300 L 1312 260" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <path d="M 1312 220 L 1312 180" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- [Reporting] down to Action Execution (FbStream.Backend) -->
-    <path d="M 1015 249 L 1015 507 L 1155 507" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- ==================== BRANCH 2: RESILIENCE & RETRY (DOWNWARDS) ==================== -->
 
-    <!-- FbStream.Backend <-> FbStream.Retry -->
-    <path d="M 1300 507 L 1320 507" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- BackendApi on transient failure -> RetryService -->
+    <path d="M 1205 429 L 1205 645" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- Backend & Retry to SQL Server -->
-    <path d="M 1230 534 L 1230 570" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- RetryService <-> send_retry queue -->
+    <path d="M 1110 680 L 1030 680" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-    <!-- Backend API out to Facebook Graph Live API -->
-    <path d="M 1312 625 L 1312 665" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <!-- RetryService backoff re-injection into reply_commands -->
+    <path d="M 962 650 L 962 425" fill="none" stroke="#0f172a" stroke-width="1.5" stroke-dasharray="4,4" marker-end="url(#arrow)"/>
+
+    <!-- RetryService max retries exhausted -> dead_letter (DLQ) -->
+    <path d="M 900 680 L 840 680" fill="none" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-red)"/>
+
+    <!-- Rule Engine poison spam branch -> dead_letter (DLQ) -->
+    <path d="M 740 562 L 740 645" fill="none" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-red)"/>
+
+    <!-- Circuit Breaker & Manual Review links to DLQ -->
+    <path d="M 655 677 L 725 677" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <path d="M 655 757 L 782 757 L 782 715" fill="none" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <!-- BackendApi & RetryService persistent audit logging to SQL Server -->
+    <path d="M 1205 710 L 1205 725" fill="none" stroke="#0f172a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
 
     <!-- ========================================================================= -->
@@ -503,20 +512,20 @@
     <!-- ========================================================================= -->
 
     <!-- Upward arrow at left (under Ingestion) -->
-    <path d="M 60 855 L 60 780" fill="none" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+    <path d="M 50 940 L 50 830" fill="none" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
 
     <!-- Left horizontal line -->
-    <line x1="60" y1="855" x2="420" y2="855" stroke="#0f172a" stroke-width="2" />
+    <line x1="50" y1="940" x2="400" y2="940" stroke="#0f172a" stroke-width="2" />
 
     <!-- Right horizontal line -->
-    <line x1="1120" y1="855" x2="1480" y2="855" stroke="#0f172a" stroke-width="2" />
+    <line x1="1240" y1="940" x2="1590" y2="940" stroke="#0f172a" stroke-width="2" />
 
-    <!-- Upward arrow at right (under Reporting) -->
-    <path d="M 1480 855 L 1480 780" fill="none" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
+    <!-- Upward arrow at right (under Action Delivery) -->
+    <path d="M 1590 940 L 1590 830" fill="none" stroke="#0f172a" stroke-width="2" marker-end="url(#arrow)"/>
 
   </svg>
 
-  <!-- Bottom Observability Card (Exact Monte Carlo layout) -->
+  <!-- Bottom Observability Card (Monte Carlo Style) -->
   <div class="bottom-bar">
     <div class="bottom-pill">
       <!-- Prometheus Icon -->
